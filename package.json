@@ -1,0 +1,27 @@
+{
+  "name": "merkle-mountain-range",
+  "version": "0.0.1",
+  "description": "Merkle tree of merkle trees",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zmitton/merkle-mountain-range.git"
+  },
+  "keywords": [
+    "Merkle",
+    "Mountain",
+    "Range",
+    "MerkleMountainRange",
+    "FlyClient",
+    "Ethereum"
+  ],
+  "author": "Zac Mitton",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zmitton/merkle-mountain-range/issues"
+  },
+  "homepage": "https://github.com/zmitton/merkle-mountain-range#readme"
+}
