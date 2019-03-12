@@ -23,5 +23,14 @@
   "bugs": {
     "url": "https://github.com/zmitton/merkle-mountain-range/issues"
   },
-  "homepage": "https://github.com/zmitton/merkle-mountain-range#readme"
+  "homepage": "https://github.com/zmitton/merkle-mountain-range#readme",
+  "dependencies": {
+    "js-sha3": "^0.8.0"
+  },
+  "devDependencies": {
+    "eth-object": "^1.0.0",
+    "isomorphic-rpc": "^1.1.0",
+    "promisfy": "^1.2.0",
+    "semaphore": "^1.1.0"
+  }
 }
