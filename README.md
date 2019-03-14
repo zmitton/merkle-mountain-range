@@ -1,14 +1,13 @@
-# Pristine
+# Merkle Mountain Range
 
-Pristine is an open source repository in its original condition.
+A type of merkle tree that could be described as many merkle trees which are then combined into 1, by making another merkle tree of their roots. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it.
 
-There are a lack of repositories to start from to build community driven open source projects. Pristine is a starting point, it follows a Documentation Driven Development approach, and can be used as a resource to augment existing documentation.
+The MMR has many unique properties making it optimal for proving the ordering of a linked hashlist (as described in [FlyClient todo: link me]() )
 
-## How to use Pristine in your project
+[Resources](https://github.com/juinc/tilap/issues/244) of the data structure invented by Peter Todd
 
-There are 2 options for using pristine with your project. 
-1. Fork this repo as the start of your own, OR
-2. [follow these instructions](https://thoughts.t37.net/merging-2-different-git-repositories-without-losing-your-history-de7a06bba804) to use it on an existing repository.
+
+## Pristine Template Below
 
 ## Documentation Driven Development
 

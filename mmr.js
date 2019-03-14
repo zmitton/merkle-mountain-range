@@ -1,103 +1,119 @@
-// fs.writeFile('thing1',Buffer.from('34','hex'), (e,r,a)=>{console.log(e,r,a)})
-// fs.writeFileSync(file, data[, options])
-// class Navigator{
-//   constructor(opts){
-//     this.i = opts.i
-//     this.h = opts.h
-//     this.r = opts.r
-//   }
-//   height(){
-//     return this.h = this.h || MMR.height(this.i)
-//   }
-//   rightness(){
-//     return this.r = this.r || MMR.rightness(this.i)
-//   }
+// const DB = require('./db')
+const Node = require('./node')
+const { Lock } = require('semaphore-async-await')
+const { keccak256 } = require('js-sha3')
+
+
+class MMR{
+  constructor(db, hashingFunction){
+    this.db  = db
+    this.hashingFunction = hashingFunction || keccak256
+    this.lock = new Lock(1)
+  }
+
+  async get(n){
+    let index = MMR.get(n)
+
+    await this.lock.acquire()
+    let leaf = await this.db.read(index)
+    this.lock.release()
+    return leaf
+  }
+  async put(value, n){
+    // semtake
+    // if(!n){ n = this.LeafLength() } // requiring n for now
+    await this.lock.acquire()
+    await this._put(value, MMR.get(n))
+    this.lock.release()
+    // semleave
+  }
+
+  async _put(value, i){
+    let length = await this.db.nodeLength()
+    let nodePairs = MMR.relevantNodes(length, i)
+    await this.db.write(value, i)
+    console.log("HHHHH", nodePairs, length, i)
+    return this._hashUp(nodePairs)
+  }
+
+  async root(){ // merklizes the peaks // not working right yyet!
+//consider semephore here // maybe not
+//seriously consider MMR.root(length) function that returns indices
+    let length = await this.db.nodeLength()
+    console.log("L ",length)
+    let currentRow = await this.db.readBatch(MMR.peakIndices(length))
+    // let currentRow = await this.peaks(length)
+    console.log("currntRow ", currentRow)
+
+
+    while(currentRow.length > 1) {
+
+
+// for (var i = 0; i < currentRow.length; i++) {
+//   console.log(currentRow[i].toString(16))
 // }
 
-class Node{
-  constructor(index, height, rightness){
-    this.index = index 
-    this.height = height
-    this.rightness = rightness
 
-    Object.defineProperty(this, 'i', {
-      get: () => { return this.index },
-    })
-    Object.defineProperty(this, 'h', {
-      get: () => { 
-        return this.height ? this.height : this.height = MMR.height(this.i) 
-      },
-    })
-    Object.defineProperty(this, 'r', {
-      get: () => { // whether it is a right edge - `true` or a left edge - `false`
-        if(this.rightness === undefined){
-          return this.rightness = MMR.rightness(this.i)
-        } else {
-          return this.rightness
-        }
-      },
-    })
-  }
-}
-
-
-class MMR extends Array{
-  constructor(){
-    super(0)
-    //     Object.defineProperty(this, 'i', {
-    //   get: () => { return this.index },
-    // })
-  }
-
-  put(value){ // puts at the end ONLY
-    let append = MMR.appendIndices(this.length)
-    this.push(value)
-    for (var i = 0 ; i < append.length; i++) {
-      this.push(MMR.hash(append[i][0], append[i][1]))
-    }
-  }
-  hash(){
-
-  }
-
-  putNth(n, value){
-
-  }
-
-  root(){
-    return MMR.root(this.length)
-  }
-
-  static root(length){ // final root of bagged peaks
-    let currentRow = MMR.peakIndices(length)
-    console.log("currentRow: ", currentRow)
-    while(currentRow.length > 1) {
       let parentRow = []
       for (var i = 1; i < currentRow.length; i += 2) {
-        parentRow.push(MMR.hash(currentRow[i-1],currentRow[i]))
+        let hash = await this._hash(currentRow[i-1],currentRow[i])
+        parentRow.push(hash)
       }
-      if(currentRow.length %2 == 1) { parentRow.push(currentRow[currentRow.length-1])}
+      if(currentRow.length % 2 == 1) { parentRow.push(currentRow[currentRow.length-1])}
       currentRow = parentRow
     }
     return currentRow[0]
   }
 
-  static bagProof(length){}
-  static localPeakProof(length){}
+//   async peaks(length){
+// //consider semephore here
+//     // let length = this.db.nodeLength()
+//     return this.db.readBatch(MMR.peakIndices(length))
 
+//   }
 
-  static appendIndices(length){ // indexes to hash after update (at the end ONLY)
-    let indices = []
-    while(this.rightness(length)){
-      indices.push([this.leftSib(length), length])
-      length++
+  async _hashUp(nodePairs){
+    for (var i = 0; i < nodePairs.length; i++) {
+      let leftChild = await this.db.read(nodePairs[i][0].i)
+      let rightChild = await this.db.read(nodePairs[i][1].i)
+      await this.db.write(this._hash(leftChild, rightChild))
+
     }
-    return indices
   }
 
-  static get(n){ // index of nth leaf// should not be using peak height. doesnt seem to make sense
-    // I guess actually it might be ok. fph is a reference of sorts. essentially just getting the exp
-    // on 3rd thought, better to use something named logFloor as the generic instead of this shit
+  _hash(a, b) {
+    if(b){
+      return Buffer.from(this.hashingFunction(Buffer.concat([a, b])),'hex')
+    }else{
+      return Buffer.from(this.hashingFunction(a),'hex')
+    }
+  }
+
+
+  print(){
+
+  }
+
+  // static bagProof(length){}
+  // static localPeakProof(length){}
+
+
+  static relevantNodes(length, i){ // indexes to hash after update (at the end ONLY)
+    let nodes = []
+    let node = new Node(i || length)
+
+    while(node.r || node.i + 1 < length){
+      if(node.r){
+        nodes.push([this.siblingNode(node), node])
+      }else{
+        nodes.push([node, this.siblingNode(node)])
+      }
+      node = this.parentNode(node)
+    }
+    return nodes
+  }
+
+  static get(n){
     let index = 0
     let exponent = this.logFloor(n + 1)
     while(exponent >= 0){
@@ -110,16 +126,6 @@ class MMR extends Array{
     return index
   }
 
-  // static getMountainStack(n, length){ //wip
-  //   let i = 0
-  //   let exponent = this.logFloor(length+1) // 2**5 = 32
-  //   let currentPeak = 2**exponent-2 // init to first peak
-  //   while(n > currentPeak/2){
-
-  //     // nthPeak++
-  //     // currentPeak +=
-  //   }
-  // }
   static localPeak(leafIndex, length){ // 2log(n)+ log(log(n))
   //might need a method like this that takes the localPeak i
     let peakNodes = MMR.peakNodes(length)
@@ -141,29 +147,18 @@ class MMR extends Array{
     }
     return nodePath // untested
   }
-
-  // static touch(n, peakIndexOfN){ // array of indexes traversed from peak
-  //   let h = peakHeight(i+1)
-
+  // static leftSib(i, h){ //must have one
+  //   return i + 1 - 2**(this.height(i) + 1)
   // }
-
-  // static myPeak(n){ 
-  //   let i = this.get(n)
-  //   peakHeight(i+1+1)
+  // static rightSib(i, h){ //must have one
+  //   return i + 2**(this.height(i) + 1) - 1
   // }
-
-  static leftSib(i, h){ //must have one
-    return i + 1 - 2**(this.height(i) + 1)
-  }
-  static rightSib(i, h){ //must have one
-    return i + 2**(this.height(i) + 1) - 1
-  }
-  static leftChild(i){ //must have one
-    return i - 2**this.height(i)
-  }
-  static rightChild(i){ //must have one
-    return i - 1;
-  }
+  // static leftChild(i){ //must have one
+  //   return i - 2**this.height(i)
+  // }
+  // static rightChild(i){ //must have one
+  //   return i - 1;
+  // }
   static leftChildNode(node){
     return new Node(node.i - 2**node.h, node.h - 1, false)
   }
@@ -174,17 +169,16 @@ class MMR extends Array{
     let multiplier = node.r ? -1 : 1
     return new Node (node.i + multiplier * (2**(node.h + 1) - 1), node.h, !node.r)
   }
-
   static parentNode(node){
     if(node.r){
-      return new Node(node.i + 1, node.h + 1/*, rightness??? */)
+      return new Node(node.i + 1, node.h + 1)
     }else{
-      return new Node(node.i + 2**(node.h + 1), node.h + 1 /*, rightness??? */)
+      return new Node(node.i + 2**(node.h + 1), node.h + 1)
     }
   }
 
 
-  static rightness(i){
+  static rightness(i){ // use by Node. clean this up
     let ph = this.peakHeight(i+1)
     while(ph > - 2){
       if(2**(ph+2) - 2 == i){
@@ -230,47 +224,18 @@ class MMR extends Array{
     }
     return peakNodes
   }
-  static peakOfN(peakIndices, n){
-    // for (let j = 0; j < peakIndices.length; j++) {
-    //   peakIndices[j]
-    // }
-  }
 
-  // static ph(length){ return this.peakHeight(length) }
-  // static peakHeight(length){ // i must be of a leaf node
-  //   let exponent = 0
-  //   while(2**exponent - 2 < length){ exponent++ }
-  //   return exponent - 2
-  // }
-  static peak(length){
-    let peakHeight = this.logFloor(length + 1) - 1
-    return new Node((2**h + 1) - 2, peakHeight, false)
-  }
 
-  static peakHeight(length){ // i must be length
+  static peakHeight(length){ 
     return this.logFloor(length + 1) - 1
   }
 
-  static logFloor(num){ //log(n)
+  static logFloor(num){ 
     let exp = 0
     while(2**exp <= num){ exp++ }
     return exp - 1
   }
-  // static logCeil(num){
-  //   let exp = 0
-  //   while(2**exp <= num){ exp++ }
-  //   return exp
-  // }
-
-  // static p(length){ 
-  //   return 2**(this.peakHeight(length)+1) - 2
-  // }
-  // static peak(i){ // i must be of a leaf node // depricate
-  //   return 2**(this.peakHeight(i)+1) - 2
-  // }
-
-  static height(i){ // i must be of a leaf node // ??? that doesnt make sense or seem to be true
-    //actually this function looks pretty good. give it more testing
+  static height(i){ 
     let ph = this.peakHeight(i + 1)
     while(ph > - 2){
       if(2**(ph+2) - 2 < i){
@@ -282,40 +247,11 @@ class MMR extends Array{
       ph--
     }
   }
-  static hash(a,b) {
-    return "h("+a+","+b+")"
+//not in use
+  static peak(length){
+    let peakHeight = this.logFloor(length + 1) - 1
+    return new Node((2**peakHeight + 1) - 2, peakHeight, false)
   }
 }
 
-r = new MMR()
-r.put(0)
-r.put(1)
-r.put(3)
-r.put(4)
-r.put(7)
-r.put(8)
-r.put(10)
-r.put(11)
-r.put(15)
-r.put(16)
-r.put(18)
-
-
-
-  // static lookupNode(i, db){ // template for dealing with vitalik's optimum w proof
-  //   let node = db.get(i)
-  //   if(node){
-  //     return node
-  //   } else {
-  //     if(this.height(i) > 0){ // has children
-  //       let lChild = this.lookupNode(this.leftChild(i), db)
-  //       let rChild = this.lookupNode(this.rightChild(i), db)
-  //       if(lChild && rChild){
-  //         return this.hash(lChild, rChild)
-  //       }
-  //     }
-  //     return false
-  //   }
-  // }
 module.exports = MMR
-

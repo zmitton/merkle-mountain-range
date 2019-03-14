@@ -1,10 +1,13 @@
-const {keccak256} = require('js-sha3')
+// By "stuff" I mean the very specific _verb_ (not the highly abstract noun)
+
+const { keccak256 } = require('js-sha3')
 const Rpc = require('isomorphic-rpc')
 const EthObject = require('eth-object')
 const { encode, toBuffer, toHex } = require('./utils')
 // const MMR = require('./mmr')
-const MMR = require('./m')
-const sem = require('semaphore')
+const MMR = require('./mmr')
+const DB = require('./fileDb')
+// const sem = require('semaphore')
 // const { promisfy } = require('promisfy')
 
 var bh = async (currentBlockNum) => {
@@ -44,13 +47,22 @@ var dump = (p, pos)=>{
 }
 
 
+
+
 var rpc = new Rpc('http://localhost:8545')
 
 // dump('file0')
 
-r = new MMR('file0')
+// var hashStub = (a, b) => {
+//   return '(' + a + ',' + b + ')'
+// }
 
-// put(10)
+
+
+r = new MMR(new DB('eth-set'), keccak256)
+
+// put(0,7000000)
+put(0,3)
 /*
 put(0, 50)
 r.append(buf())

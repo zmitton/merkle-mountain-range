@@ -25,7 +25,8 @@
   },
   "homepage": "https://github.com/zmitton/merkle-mountain-range#readme",
   "dependencies": {
-    "js-sha3": "^0.8.0"
+    "js-sha3": "^0.8.0",
+    "semaphore-async-await": "^1.5.1"
   },
   "devDependencies": {
     "eth-object": "^1.0.0",
