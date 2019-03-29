@@ -25,7 +25,11 @@
   },
   "homepage": "https://github.com/zmitton/merkle-mountain-range#readme",
   "dependencies": {
+    "bignumber": "^1.1.0",
+    "bignumber.js": "^8.1.1",
+    "bn": "^1.0.3",
     "js-sha3": "^0.8.0",
+    "rlp": "^2.2.3",
     "semaphore-async-await": "^1.5.1"
   },
   "devDependencies": {

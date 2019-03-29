@@ -1,257 +1,277 @@
-// const DB = require('./db')
-const Node = require('./node')
+const Position = require('./Position')
 const { Lock } = require('semaphore-async-await')
-const { keccak256 } = require('js-sha3')
+const { keccakAndSum } = require('js-sha3')
 
-
-class MMR{
-  constructor(db, hashingFunction){
-    this.db  = db
-    this.hashingFunction = hashingFunction || keccak256
-    this.lock = new Lock(1)
-  }
-
-  async get(n){
-    let index = MMR.get(n)
-
-    await this.lock.acquire()
-    let leaf = await this.db.read(index)
-    this.lock.release()
-    return leaf
-  }
-  async put(value, n){
-    // semtake
-    // if(!n){ n = this.LeafLength() } // requiring n for now
-    await this.lock.acquire()
-    await this._put(value, MMR.get(n))
-    this.lock.release()
-    // semleave
-  }
-
-  async _put(value, i){
-    let length = await this.db.nodeLength()
-    let nodePairs = MMR.relevantNodes(length, i)
-    await this.db.write(value, i)
-    console.log("HHHHH", nodePairs, length, i)
-    return this._hashUp(nodePairs)
-  }
-
-  async root(){ // merklizes the peaks // not working right yyet!
-//consider semephore here // maybe not
-//seriously consider MMR.root(length) function that returns indices
-    let length = await this.db.nodeLength()
-    console.log("L ",length)
-    let currentRow = await this.db.readBatch(MMR.peakIndices(length))
-    // let currentRow = await this.peaks(length)
-    console.log("currntRow ", currentRow)
-
-
-    while(currentRow.length > 1) {
-
-
-// for (var i = 0; i < currentRow.length; i++) {
-//   console.log(currentRow[i].toString(16))
+// class PeakTree{
+//   constructor()
 // }
 
 
-      let parentRow = []
-      for (var i = 1; i < currentRow.length; i += 2) {
-        let hash = await this._hash(currentRow[i-1],currentRow[i])
-        parentRow.push(hash)
-      }
-      if(currentRow.length % 2 == 1) { parentRow.push(currentRow[currentRow.length-1])}
-      currentRow = parentRow
-    }
-    return currentRow[0]
+class MMR{
+  constructor(db, hash){
+    this.db  = db
+    this.hash = hash || keccakAndSum // default for ethereum
+    this.lock = new Lock(1)
   }
+  // async getPeakTreeNode(){}
+  // async bagRoot(){}
 
-//   async peaks(length){
-// //consider semephore here
-//     // let length = this.db.nodeLength()
-//     return this.db.readBatch(MMR.peakIndices(length))
+  async get(leafIndex){ // _should_ drill down into the tree for the specified leaf
+    // verifying each hash as is goes. Functionally deals with missing nodes
+    // by recursivly getting the hash of their children instead
+    await this.lock.acquire()
+    let leafLength = await this.db.getLeafLength()
+    nodeLength = MMR.getNodeLength(leafLength)
+    let position = MMR.getPosition(leafIndex)
+    let localPeak = MMR.localPeak(position.i, nodeLength)
+    this.walk(localPeak,)
 
-//   }
-
-  async _hashUp(nodePairs){
-    for (var i = 0; i < nodePairs.length; i++) {
-      let leftChild = await this.db.read(nodePairs[i][0].i)
-      let rightChild = await this.db.read(nodePairs[i][1].i)
-      await this.db.write(this._hash(leftChild, rightChild))
-
-    }
+    // let leaf = await this.getNode(MMR.getPosition(leafIndex))
+    this.lock.release()
+    return leaf
   }
-
-  _hash(a, b) {
-    if(b){
-      return Buffer.from(this.hashingFunction(Buffer.concat([a, b])),'hex')
+  async getNode(position){
+    let node = await this.db.get(position.i)
+    if(node){
+      return node
     }else{
-      return Buffer.from(this.hashingFunction(a),'hex')
+      if(position.h == 0){
+        throw new Error("Missing nodes in DB")
+      }else{
+        let leftChild = await this.getNode(MMR.leftChild(position))
+        let rightChild = await this.getNode(MMR.rightChild(position))
+        return this.hash(leftChild, rightChild)
+      }
     }
   }
 
+  async put(value, leafIndex){ // separate into put and append
+    await this.lock.acquire()
+    let nodeIndex, peak
+    let nodeLength = await this.getNodeLength() // next index is the current length
 
-  print(){
+    if(leafIndex == undefined || MMR.getPosition(leafIndex).i >= nodeLength){
+      nodeIndex = nodeLength
+      peak = MMR.newPeak(nodeIndex)
+    }else{
+      nodeIndex = MMR.getPosition(leafIndex).i
+      if(nodeIndex > nodeLength){ throw new Error('cannot add leaf #'+ leafIndex + " yet") } 
+      peak = MMR.localPeak(nodeIndex, nodeLength)
+    }
 
+    let mountainBranchNodes = MMR.moutainBranchNodes(peak, new Position(nodeIndex))
+    // console.log("FROM APAPEND ", mountainBranchNodes)
+    await this.db.write(value, nodeIndex)
+    await this._hashUp(mountainBranchNodes)
+    this.lock.release()
   }
 
+  async root(){
+    let peaks = MMR.peakPositions(this.getNodeLength())
+  }
+
+
+
+  async getNodeLength(){ // caching
+    if(!this._nodeLength){ // dirty length
+      let leafLength = await this.getLeafLength()
+      this._nodeLength = MMR.getNodeLength(leafLength)
+    }
+    return this._nodeLength
+  }
+  async getLeafLength(){ // caching
+    if(!this._leafLength){// dirty length
+      this._leafLength = this.db.getLeafLength()
+    }
+    return this._leafLength
+  }
+  async _setLeafLength(leafLength){ // must be called during semaphore
+    await this.db.setLeafLength(leafLength)
+    this._leafLength = leafLength
+    this._nodeLength = MMR.getNodeLength(leafLength)
+  }
+  // async nodeLength(){
+  //   // return this.db.nodeLength()
+  //   let length = await this.db.nodeLength()
+  //   if(!MMR._isValidNodeLength(length)){ // leave this check only though testing
+  //     throw new Error("isCorrupt length for tree " + length)
+  //   }
+  //   return length
+  // }
+  // async leafLength(){
+  //   let nodeLength = await this._nodeLength()
+  //   return MMR.getLeafIndex(nodeLength - 1) + 1
+  // }
+
+  async _hashUp(positionPairs){
+    // console.log("NODE PAIRS LENGTH ",positionPairs.length)
+    for (var i = positionPairs.length - 1; i >= 0 ; i--) {
+      // console.log("NODE PAIRS ",positionPairs, "i", i)
+      // console.log("NODE PAIRS [i]", i)
+      let leftValue = await this.db.read(positionPairs[i][0].i)
+      let rightValue = await this.db.read(positionPairs[i][1].i)
+      let writeIndex = MMR.parentPosition(positionPairs[i][0]).i
+      await this.db.write(this.hash(leftValue, rightValue), writeIndex)
+    }
+  }
+
+  static getNodeLength(leafLength){ 
+    
+  }
+
+  static getPosition(leafIndex){
+    if(leafIndex == undefined){ return new Position(-1) } //check needed?
+    let nodeIndex = 0
+    let exponent = this._logFloor(leafIndex + 1)
+    while(exponent >= 0){
+      if(leafIndex >= 2**exponent){
+        nodeIndex += 2**(exponent+1)-1
+        leafIndex -= 2**exponent
+      }
+      exponent--
+    }
+    return new Position(nodeIndex, 0)
+  }
+  static leftChildPosition(position){
+    return new Position(position.i - 2**position.h, position.h - 1, false)
+  }
+  static rightChildPosition(position){
+    return new Position(position.i - 1, position.h - 1, true)
+  }
+  static siblingPosition(position){
+    let multiplier = position.r ? -1 : 1
+    return new Position (position.i + multiplier * (2**(position.h + 1) - 1), position.h, !position.r)
+  }
+  static parentPosition(position){
+    if(position.r){
+      return new Position(position.i + 1, position.h + 1)
+    }else{
+      return new Position(position.i + 2**(position.h + 1), position.h + 1)
+    }
+  }
+
+  // print(){}
   // static bagProof(length){}
   // static localPeakProof(length){}
 
 
-  static relevantNodes(length, i){ // indexes to hash after update (at the end ONLY)
-    let nodes = []
-    let node = new Node(i || length)
-
-    while(node.r || node.i + 1 < length){
-      if(node.r){
-        nodes.push([this.siblingNode(node), node])
-      }else{
-        nodes.push([node, this.siblingNode(node)])
-      }
-      node = this.parentNode(node)
-    }
-    return nodes
+  static peakHeight(nodeIndex){ 
+    return this._logFloor(nodeIndex + 2) - 1
   }
-
-  static get(n){
-    let index = 0
-    let exponent = this.logFloor(n + 1)
-    while(exponent >= 0){
-      if(n >= 2**exponent){
-        index += 2**(exponent+1)-1
-        n -= 2**exponent
-      }
-      exponent--
-    }
-    return index
-  }
-
-  static localPeak(leafIndex, length){ // 2log(n)+ log(log(n))
-  //might need a method like this that takes the localPeak i
-    let peakNodes = MMR.peakNodes(length)
-    for (var i = 0; i < peakNodes.length; i++) {
-      if(leafIndex * 2 <= peakNodes[i].i){
-        return peakNodes[i]
-      }
-    }
-  }
-  static localPeakPath(localPeak, nodeIndex){ //
-  // assume local peak is correct for n
-    let nodePath = [localPeak]
-    for (let h = localPeak.h ; h > 0; h--) {
-      if(nodePath[nodePath.length-1].i - nodeIndex < 2**h){
-        nodePath.push(MMR.rightChildNode(nodePath[nodePath.length-1]))
-      } else{
-        nodePath.push(MMR.leftChildNode(nodePath[nodePath.length-1]))
-      }
-    }
-    return nodePath // untested
-  }
-  // static leftSib(i, h){ //must have one
-  //   return i + 1 - 2**(this.height(i) + 1)
-  // }
-  // static rightSib(i, h){ //must have one
-  //   return i + 2**(this.height(i) + 1) - 1
-  // }
-  // static leftChild(i){ //must have one
-  //   return i - 2**this.height(i)
-  // }
-  // static rightChild(i){ //must have one
-  //   return i - 1;
-  // }
-  static leftChildNode(node){
-    return new Node(node.i - 2**node.h, node.h - 1, false)
-  }
-  static rightChildNode(node){
-    return new Node(node.i - 1, node.h - 1, true)
-  }
-  static siblingNode(node){
-    let multiplier = node.r ? -1 : 1
-    return new Node (node.i + multiplier * (2**(node.h + 1) - 1), node.h, !node.r)
-  }
-  static parentNode(node){
-    if(node.r){
-      return new Node(node.i + 1, node.h + 1)
-    }else{
-      return new Node(node.i + 2**(node.h + 1), node.h + 1)
-    }
-  }
-
-
-  static rightness(i){ // use by Node. clean this up
-    let ph = this.peakHeight(i+1)
-    while(ph > - 2){
-      if(2**(ph+2) - 2 == i){
+  static rightness(nodeIndex){ // use by Node. clean this up
+    let peakHeight = this.peakHeight(nodeIndex)
+    while(peakHeight > -2){
+      if(2**(peakHeight + 2) - 2 == nodeIndex){
         return false
       }
-      if(2**(ph+2) - 2 < i){
-        i = i - (2**(ph+2) - 1)
+      if(2**(peakHeight + 2) - 2 < nodeIndex){
+        nodeIndex = nodeIndex - (2**(peakHeight+2) - 1)
       } 
-      if(2**(ph+2) - 2 == i){
+      if(2**(peakHeight + 2) - 2 == nodeIndex){
         return true
       }
-      ph--
+      peakHeight--
     }
   }
-  static _isCorrupt(length){ // final node should always be "Left"
-    return this.rightness(length-1)
-  }
 
-  static peakIndices(length){
-    if(length == 0){ return [] }
-    let h = this.peakHeight(length)
-    let is = [2**(h+1)-2]
-    while(h > 0){
-      h--
-      let np = is[is.length-1] + 2**(h+1)-1
-      if(length > np){
-        is.push(np)
+// nodeLength
+  static peakPositions(nodeLength){ // 2log(n) // working
+    if(nodeLength == 0){ return [] } // should actually work fine without this line
+    let currentPeak = this.firstPeak(nodeLength)
+    let peakPositions = []
+    while(currentPeak.h >= 0){
+      peakPositions.push(currentPeak)
+      currentPeak = this.siblingPosition(currentPeak)
+      while(currentPeak.i >= nodeLength && currentPeak.h >= 0){
+        currentPeak = this.leftChildPosition(currentPeak)
       }
     }
-    return is
+    return peakPositions
   }
-  static peakNodes(length){ // 2log(n)
-    if(length == 0){ return [] }
-    let peak = this.peakNode(length)
-    let currentH = peak.h
-    let peakNodes = [thisPeak]
-    while(currentPeak > 0){
-      currentPeak--
-      let nextPeakI = peakNodes[peakNodes.length - 1].i + 2**(currentPeak + 1) - 1
-      if(length > nextPeakI){
-        peakNodes.push(new Node(nextPeakI, currentPeak, true))
+  // static localPeak(leafIndex, nodeLength){ /// draft, if needed, rename the other to _localPeak
+  //   return this._localPeak(this.getPosition(leafIndex), nodeLength)
+  // }
+  static localPeak(nodeIndex, nodeLength){ // 2log(n)+ log(log(n)) // unchecked
+    //deosnt catch erronious data watch out. i.e. this._localPeak(7,7) give wrong answer
+    let currentPeak = this.firstPeak(nodeLength)
+    while(currentPeak.h >= 0 && currentPeak.i < nodeIndex){
+      currentPeak = this.siblingPosition(currentPeak)
+      while(currentPeak.i >= nodeLength && currentPeak.h >= 0){
+        currentPeak = this.leftChildPosition(currentPeak)
       }
     }
-    return peakNodes
+    return currentPeak
   }
 
 
-  static peakHeight(length){ 
-    return this.logFloor(length + 1) - 1
+  static newPeak(nodeLength){ // peaknode()[O2logn] + O(1)
+  // the local peak will exist for the next appended item
+    let peaks = this.peakPositions(nodeLength)
+    let currentPeak = new Position(nodeLength, 0, false) // rightness unknown
+    for (var i = peaks.length - 1; i >= 0; i--) { // average of 1 iteration here
+      if(currentPeak.h < peaks[i].h){
+        return currentPeak
+      }else{
+        currentPeak = new Position(currentPeak.i + 1, currentPeak.h + 1, false)
+      }
+    }
+    return currentPeak
   }
 
-  static logFloor(num){ 
+  static moutainBranchNodes(currentNode, targetNode){ // indexes to hash after appending
+    // console.log("newPEak ", currentNode, "nodeindex ", targetNode.i, "\n\n")
+    let mountainBranchNodes = []
+    while (currentNode.h > 0) {
+      // console.log("\n\n", currentNode.i, " BRANCH NODES\n", mountainBranchNodes)
+      let children = [this.leftChildPosition(currentNode), this.rightChildPosition(currentNode)]
+      // console.log("CHILDREN\n", children)
+      mountainBranchNodes.push(children)
+      if(targetNode.i > currentNode.i - 2**currentNode.h - currentNode.h + 1){
+        currentNode = children[1]
+      }else{
+      // console.log("CHILD 0\n", children[0])
+        currentNode = children[0]
+      }
+    }
+      // console.log("BRANCH NODES RETURNING\n", mountainBranchNodes)
+
+    return mountainBranchNodes
+  }
+
+
+
+
+
+  static _logFloor(num){ 
     let exp = 0
     while(2**exp <= num){ exp++ }
     return exp - 1
   }
-  static height(i){ 
-    let ph = this.peakHeight(i + 1)
-    while(ph > - 2){
-      if(2**(ph+2) - 2 < i){
-        i = i - (2**(ph+2) - 1)
+  static _isValidNodeLength(nodeLength){ // final node should always be "Left"
+    return !this.rightness(nodeLength-1)
+  }
+  static firstPeak(length){
+    if(length == 0){ return new Position(-1, -1) }
+    let peakHeight = this._logFloor(length + 1) - 1
+    return new Position(2**(peakHeight + 1) - 2, peakHeight, false)
+  }
+//not in use but totally works
+  static height(nodeIndex){ //great
+    let peakHeight = this.peakHeight(nodeIndex)
+    while(peakHeight > -2){
+      if(2**(peakHeight + 2) - 2 < nodeIndex){
+        nodeIndex = nodeIndex - (2**(peakHeight+2) - 1)
       } 
-      if(2**(ph+2) - 2 == i){
-        return ph + 1
+      if(2**(peakHeight + 2) - 2 == nodeIndex){
+        return peakHeight + 1
       }
-      ph--
+      peakHeight--
     }
   }
-//not in use
-  static peak(length){
-    let peakHeight = this.logFloor(length + 1) - 1
-    return new Node((2**peakHeight + 1) - 2, peakHeight, false)
-  }
+
 }
 
 module.exports = MMR
+
+
+

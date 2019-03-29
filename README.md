@@ -2,9 +2,18 @@
 
 A type of merkle tree that could be described as many merkle trees which are then combined into 1, by making another merkle tree of their roots. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it.
 
-The MMR has many unique properties making it optimal for proving the ordering of a linked hashlist (as described in [FlyClient todo: link me]() )
+The MMR has many unique properties making it optimal for proving the ordering of a linked hashlist (as described in [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA))
 
-[Resources](https://github.com/juinc/tilap/issues/244) of the data structure invented by Peter Todd
+## Resources 
+
+[MMR data structure](https://github.com/juinc/tilap/issues/244) invented by Peter Todd
+
+[Slice Sampling Markov Chain Monte Carlo algorithm](https://en.wikipedia.org/wiki/Slice_sampling) may be useful to efficiently calculate the exponentially distributed deterministic randomness needed to determine which blocks to sample (fly client doesn't seem to specify).
+
+
+
+
+## Links
 
 
 ## Pristine Template Below
