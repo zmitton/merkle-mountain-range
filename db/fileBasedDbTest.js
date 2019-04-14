@@ -13,7 +13,7 @@ mmr.db.get(0).then((response)=>{
 
 })
 
-flyProof: {
+flyproof = {
   nodes: {
     0:    '0x32485946587657893465867354',
     5:    '0x98567657456635435344544663',
@@ -21,7 +21,7 @@ flyProof: {
     104:  '0x15654365623636234543543545',
     3314: '0x24dffd65623636234543543545',
     3434: '0x11654365623636234543543545',
-  }
+  },
   blockheaders:{
     0: '0xposiblyrlpencodedblockheaderhere',
     26: '0xposiblyrlpencodedblockheaderhere',
@@ -29,7 +29,8 @@ flyProof: {
   },
   ethashData: {
     /* no idea how this will look*/
-  },
+  }
 }
+// note: `nodes` object must also included the peaks from the bag proccess at each sampled time.
 // premature optimization: the leaf nodes can be omitted when _building_ the proof. The client can 
 // recreate & add them by iterating though the blockheaders i.e. `mmr.set(MMR.getNodeIndex(bkl.num), blk.hash)`

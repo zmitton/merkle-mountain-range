@@ -1,5 +1,7 @@
 // structure to hold a node's position.
-// lazily computes height/rightness
+// an `index` is sufficient to describe the position
+// but object exist to allow lazy computation of height/rightness
+// because computing height and rightness from only index require Log(n) operations
 class Position{
   constructor(index, height, rightness){
     this.index = index 

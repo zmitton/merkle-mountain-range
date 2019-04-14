@@ -1,4 +1,6 @@
 const WORD_SIZE = 64
+// make one that uses levelDB
+//   just needs to store nodes as mmr-<index> or something
 
 class FileBasedDB {
   constructor(filePath){
@@ -14,12 +16,17 @@ class FileBasedDB {
         if(e){
           reject(e)
         }else{
-          resolve(chunk)
+          if(chunk.equals(Buffer.alloc(WORD_SIZE))){
+            resolve(null)
+          }else{
+            resolve(chunk)
+          }
         }
       })
     })
   }
   async set(index, value){
+    if(value == undefined){ value = Buffer.alloc(WORD_SIZE) }
     return new Promise((resolve, reject)=>{
       fs.write(this.fd, value, 0, WORD_SIZE, ((index + 1) * WORD_SIZE), (e, r)=>{ // +1 because 1st elem holds length data
         if(e){
@@ -37,11 +44,14 @@ class FileBasedDB {
     return this.leafLength
   }
   async setLeafLength(leafLength){ // must have semaphore wrapper defined from MMR interface
-    let lengthBuffer = Buffer.alloc(64).writeUInt8(leafLength, WORD_SIZE - 4)
+    let lengthBuffer = Buffer.alloc(WORD_SIZE).writeUInt8(leafLength, WORD_SIZE - 4)
     this.leafLength = leafLength
     return  this.write(lengthBuffer, 0)
   }
 
+  // async getIndices(){
+  //   throw new Error('FileBasedDB does not support `.getIndices()` method')
+  // }
 
   // async write(value, index){
   //   let length = await this.nodeLength()
