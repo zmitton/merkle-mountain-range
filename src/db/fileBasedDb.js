@@ -1,5 +1,5 @@
 const WORD_SIZE = 64
-// make one that uses levelDB
+// make one that uses levelDB... maybe
 //   just needs to store nodes as mmr-<index> or something
 
 class FileBasedDB {
