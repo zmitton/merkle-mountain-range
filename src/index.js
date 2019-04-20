@@ -1,5 +1,5 @@
 const MMR = require('./mmr.js')
-const MemoryBasedDB = require('./memoryBasedDB.js')
+const MemoryBasedDB = require('./db/memoryBasedDB.js')
 // const FileBasedDB = require('./fileBasedDB.js') // comming soon
 
 const Position = require('./position.js')
