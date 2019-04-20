@@ -1,6 +1,4 @@
 const WORD_SIZE = 64
-// make one that uses levelDB... maybe
-//   just needs to store nodes as mmr-<index> or something
 
 class FileBasedDB {
   constructor(filePath){
@@ -49,9 +47,6 @@ class FileBasedDB {
     return  this.write(lengthBuffer, 0)
   }
 
-  // async getIndices(){
-  //   throw new Error('FileBasedDB does not support `.getIndices()` method')
-  // }
 
   // async write(value, index){
   //   let length = await this.nodeLength()

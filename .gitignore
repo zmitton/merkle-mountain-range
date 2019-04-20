@@ -2,6 +2,5 @@ build
 /**/build
 .DS_Store
 node_modules
-notes.txt
-eth-set
-archive.js
+gitignore
+.vscode/

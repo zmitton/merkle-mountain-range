@@ -1,147 +1,145 @@
-const Position = require('./Position')
-const { Lock } = require('semaphore-async-await')
-const { keccakAndSum } = require('js-sha3')
+const { Lock }      = require('semaphore-async-await')
+const Position      = require('./position')
+const MemoryBasedDb = require('./db/memoryBasedDb')
 
 class MMR{
-  constructor(db, hash){
-    this.db  = db
-    this.hash = hash || keccakAndSum // default for ethereum
+  constructor(hashingFunction, db){
+    this.digest = hashingFunction
+    this.db  = db || new MemoryBasedDb()
     this.lock = new Lock(1)
   }
   async get(leafIndex){
+    let leafValue
     await this.lock.acquire()
-    let leafLength = await this.getLeafLength()
-    if(leafIndex >= leafLength){ throw new Error('Leaf not in tree') }// or `return null` (not sure whats best here)
-    let leafPosition = MMR.getNodePosition(leafIndex)
-    let localPeakPosition = MMR.localPeakPosition(leafIndex, leafLength)
-    let localPeakValue = await this._getNodeValue(localPeakPosition)
-    let leafValue = await this._verifyPath(localPeakPosition, localPeakValue, leafPosition)
-    this.lock.release()
-    return leafValue
-  }
-  async _verifyPath(currentPosition, currentValue, leafPosition){ // verifies as it walks
-    if(currentPosition.i == leafPosition.i){ // base case
-      return currentValue
-    }else{
-      let leftChildPosition = MMR.leftChildPosition(currentPosition)
-      let rightChildPosition = MMR.rightChildPosition(currentPosition)
-      let leftValue = await this._getNodeValue(leftChildPosition)
-      let rightValue = await this._getNodeValue(rightChildPosition)
-      if(!currentValue.equals(this.hash(leftValue, rightValue))){
-        throw new Error('Hash mismatch of node #' + currentPosition.i ' and its children')
-      }
-      if(leafPosition.i > currentPosition.i - 2**currentPosition.h - currentPosition.h + 1){ //umm yeah, check this line
-        return this._verifyPath(rightChildPosition, rightValue, leafPosition)
-      }else{
-        return this._verifyPath(leftChildPosition, leftValue, leafPosition)
-      }
+    try{
+      let leafLength = await this.getLeafLength()
+      if(leafIndex >= leafLength){ throw new Error('Leaf not in tree') }
+      let leafPosition = MMR.getNodePosition(leafIndex)
+      let localPeakPosition = MMR.localPeakPosition(leafIndex, leafLength)
+      let localPeakValue = await this._getNodeValue(localPeakPosition)
+      leafValue = await this._verifyPath(localPeakPosition, localPeakValue, leafPosition)
+    }finally{
+      this.lock.release()
     }
+    return leafValue
   }
   async append(value, leafIndex){
     await this.lock.acquire()
-    let leafLength = await this.getLeafLength()
-    if(leafIndex == undefined || leafIndex == leafLength){
-      let nodePosition = MMR.getNodePosition(leafIndex)
-      await this._put(value, nodePosition, MMR.localPeakPosition(leafIndex, leafLength))
-      await this._setLeafLength(leafIndex + 1)
-    } else{
-      throw new Error('Can only append to end of MMR')
+    try{
+      let leafLength = await this.getLeafLength()
+      if(leafIndex == undefined || leafIndex == leafLength){
+        let nodePosition = MMR.getNodePosition(leafLength)
+        let mountainPositions = MMR._mountainPositions(MMR.localPeakPosition(leafLength, leafLength), nodePosition.i)
+        await this.db.set(nodePosition.i, value)
+        await this._hashUp(mountainPositions)
+        await this._setLeafLength(leafLength + 1)
+      } else{
+        throw new Error('Can only append to end of MMR')
+      }
+    }finally{
+      this.lock.release()
     }
-    this.lock.release()
   }
-  async _put(value, nodePosition, localPeakPosition){ // separate into put and append. needs work
-    let mountainPositions = MMR.mountainPositions(localPeakPosition, nodePosition.i)
-    await this.db.set(nodePosition.i, value)
-    await this._hashUp(mountainPositions)
+  async appendMany(values, startLeafIndex){
+    startLeafIndex = startLeafIndex || await this.getLeafLength()
+    for (let i = 0; i < values.length; i++) {
+      await this.append(values[i], startLeafIndex + i);
+    }
   }
+  // async _append(value, nodePosition, localPeakPosition){  }
   async getRoot(leafIndex){
+    let peakValues
     await this.lock.acquire()
-    if(leafIndex == undefined){
-      leafIndex = await this.getLeafLength() - 1
+    try{
+      if(leafIndex == undefined){
+        leafIndex = await this.getLeafLength() - 1
+      }
+      let peakPositions = MMR.peakPositions(leafIndex)
+      peakValues = []
+      for (let i = 0; i < peakPositions.length; i++) {
+        peakValues.push(await this._getNodeValue(peakPositions[i]))
+      }
+    }finally{
+      this.lock.release()
+      return this.digest(...peakValues) 
+      // note: a single peak differs from its MMR root (it gets hashed a second time)
     }
-    let peakPositions = MMR.peakPositions(leafIndex)
-    let peakValues = Buffer.alloc(0)
-    for (var i = 0; i < peakPositions.length; i++) {
-      let currentPeakValue = await this._getNodeValue(peakPositions[i])
-      peakValues = Buffer.concat([peakValues, currentPeakValue]
-    }
-    this.lock.release()
-    return this.hash(peakValues) // note: a single peak will differ from its MMR root (it'll get hashed a second time)
   }
   async getNodeLength(){ // caching
     if(this._nodeLength == undefined){ // dirty length
       let leafLength = await this.getLeafLength()
-      this._nodeLength = MMR.getNodeLength(leafLength)
+      this._nodeLength = MMR.getNodePosition(leafLength).i
     }
     return this._nodeLength
   }
   async getLeafLength(){ // caching
-    if(this._leafLength == undefined){// dirty length
+    if(this._leafLength == undefined){ // dirty length
       this._leafLength = this.db.getLeafLength()
     }
     return this._leafLength
   }
   async delete(leafIndex){ // logically deletes everything after (and including) leafIndex
-    // work on this though, because if the indices are still present other functions may return values 
-    // when they shouldnt. i.e. and even `get`
-    // `get` checks the leafLength beforehand so all nodes will be within nodeLength
     await this.lock.acquire()
-    let leafLength = await this.getLeafLength()
-    if(leafIndex < leafLength){
-      await this._setLeafLength(leafIndex)
+    try{
+      let leafLength = await this.getLeafLength()
+      if(leafIndex < leafLength){
+        await this._setLeafLength(leafIndex)
+      }
+    }finally{
+      this.lock.release()
     }
-    this.lock.release()
   }
-  async getProof(leafIndices){
-    let leafLength = await this.getLeafLength()
-    let finalPeakPositions = MMR.peakPositions(leafLength - 1)
-    let proofMmr = new MMR(new MemoryBasedDb(leafLength), this.hash)
-    let nodes = proofMmr.db.nodes
-    let positions = {}
-
-    for (let i = 0; i < leafIndices.length; i++) {
-      //add bag portion for each
-      let momentaryPeakPositions = MMR.peakPositions(leafIndices[i])
-      for (let j = 0; j < momentaryPeakPositions.length; j++) {
-        nodes[momentaryPeakPositions[j].i] = true
-        positions[momentaryPeakPositions[j].i] = momentaryPeakPositions[j]
+  async getProof(leafIndexes, subtreeLeafIndex){
+    let proofMmr
+    await this.lock.acquire()
+    try{
+      subtreeLeafIndex = subtreeLeafIndex || await this.getLeafLength() - 1 // define length if
+      // you want proofs to be given against some subtree (instead of the most current tree)
+      let finalPeakPositions = MMR.peakPositions(subtreeLeafIndex)
+      proofMmr = new MMR(this.digest, new MemoryBasedDb(subtreeLeafIndex + 1))
+      let nodes = proofMmr.db.nodes
+      let positions = {}
+      for (let i = 0; i < finalPeakPositions.length; i++) {
+        proofMmr.db.nodes[finalPeakPositions[i].i] = true
+        positions[finalPeakPositions[i].i] = finalPeakPositions[i]
       }
-      //add final local peak for each
-      let finalLocalPeak = MMR._localPeakPosition(leafIndices[i], finalPeakPositions)
-      nodes[finalLocalPeak.i] = true
-      positions[finalLocalPeak.i] = finalLocalPeak
-      //add mountain proof nodes for each (includes the leaf itself)
-      let nodePosition = MMR.getNodePosition(leafIndices[i])
-      let mountainPositions = MMR.mountainPositions(finalLocalPeak, nodePosition.i)
-      for (let j = 0; j < mountainPositions.length; j++) {
-        nodes[mountainPositions[j][0].i] = true
-        nodes[mountainPositions[j][1].i] = true
-        positions[mountainPositions[j][0].i] = mountainPositions[j][0]
-        positions[mountainPositions[j][1].i] = mountainPositions[j][1]
-      }
-    }
-    //clean damathafuckinproof
-    //removes all implied nodes (ones which can be calculated besd on other nodes that are present)
-    let positionIndices = Object.keys(positions)
-    positionIndices.forEach((i) => {
-      if(positions[i].h > 0){
-        let hasLeftChild = await proofMmr._hasNode(MMR.leftChildPosition(positions[i]),proofDb)
-        let hasRightChild = await proofMmr._hasNode(MMR.rightChildPosition(positions[i]),proofDb)
-        if(hasLeftChild && hasRightChild){
-          delete positions[i]
+      for (let i = 0; i < leafIndexes.length; i++) {
+        //add final local peak for each
+        let finalLocalPeak = MMR._localPeakPosition(leafIndexes[i], finalPeakPositions)
+        proofMmr.db.nodes[finalLocalPeak.i] = true
+        positions[finalLocalPeak.i] = finalLocalPeak
+        //add mountain proof nodes for each (includes the leaf itself)
+        let nodePosition = MMR.getNodePosition(leafIndexes[i])
+        let mountainPositions = MMR._mountainPositions(finalLocalPeak, nodePosition.i)
+        for (let j = 0; j < mountainPositions.length; j++) {
+          proofMmr.db.nodes[mountainPositions[j][0].i] = true
+          proofMmr.db.nodes[mountainPositions[j][1].i] = true
+          positions[mountainPositions[j][0].i] = mountainPositions[j][0]
+          positions[mountainPositions[j][1].i] = mountainPositions[j][1]
         }
       }
-    })
-    nodes = {} // reset nodes
-
-    let self = this
-    let reducedIndices = Object.keys(positions)
-    await Promise.all(reducedIndices.map( async (i)=>{
-      let nodeValue = await self._getNodeValue(position[i])
-      nodes[position.i] = nodeValue
-    }))
-    // await proofMmr.db.setLeafLength(leafLength)
-    return JSON.parse({nodes: proofMmr.db.nodes, leafLength: leafLength})
+      //remove all implied nodes (ones which can be calculated based on other nodes that are present)
+      let positionIndexes = Object.keys(positions)
+      for (let j = 0; j < positionIndexes.length; j++) {
+        if(positions[positionIndexes[j]].h > 0){
+          let hasLeftChild = await proofMmr._hasNode(MMR.leftChildPosition(positions[positionIndexes[j]]))
+          let hasRightChild = await proofMmr._hasNode(MMR.rightChildPosition(positions[positionIndexes[j]]))
+          if(hasLeftChild && hasRightChild){
+            delete positions[positionIndexes[j]]
+          }
+        }
+      }
+      proofMmr.db.nodes = {} // reset nodes
+      let self = this
+      let reducedIndexes = Object.keys(positions)
+      await Promise.all(reducedIndexes.map( async (i)=>{
+        let nodeValue = await self._getNodeValue(positions[i])
+        proofMmr.db.nodes[positions[i].i] = nodeValue
+      }))
+    }finally{
+      this.lock.release()
+      return proofMmr
+    }
   }
   async _getNodeValue(position){
     // its the public function's responsibility to NOT request positions outside leafLength
@@ -151,39 +149,57 @@ class MMR{
     }else if(position.h > 0){ // implied node
       let leftChildValue = await this._getNodeValue(MMR.leftChildPosition(position))
       let rightChildValue = await this._getNodeValue(MMR.rightChildPosition(position))
-      return this.hash(leftChildValue, rightChildValue)
+      return this.digest(leftChildValue, rightChildValue)
+    }else{
+      throw new Error('Missing node in db')
     }
   }
   async _hasNode(position){
     try{
-      let node = await this._getNodeValue(position.i)
+      let node = await this._getNodeValue(position)
       return !!node
-    } catch(){
+    }catch(e){
       return false
     }
   }
-  async _setLeafLength(leafLength){ // must be called during semaphore
+  async _verifyPath(currentPosition, currentValue, leafPosition) { // verifies as it walks
+    if (currentPosition.i == leafPosition.i) { // base case
+      return currentValue
+    } else {
+      let leftChildPosition = MMR.leftChildPosition(currentPosition)
+      let rightChildPosition = MMR.rightChildPosition(currentPosition)
+      let leftValue = await this._getNodeValue(leftChildPosition)
+      let rightValue = await this._getNodeValue(rightChildPosition)
+      if (!currentValue.equals(this.digest(leftValue, rightValue))) {
+        throw new Error('Hash mismatch of node #' + currentPosition.i + ' and its children')
+      }
+      if (leafPosition.i > currentPosition.i - 2 ** currentPosition.h - currentPosition.h + 1) { //umm yeah, check this line
+        return this._verifyPath(rightChildPosition, rightValue, leafPosition)
+      } else {
+        return this._verifyPath(leftChildPosition, leftValue, leafPosition)
+      }
+    }
+  }
+  async _setLeafLength(leafLength){
     await this.db.setLeafLength(leafLength)
     this._leafLength = leafLength
-    this._nodeLength = MMR.getNodeLength(leafLength)
+    this._nodeLength = MMR.getNodePosition(leafLength).i
   }
   async _hashUp(positionPairs){
-    for (var i = positionPairs.length - 1; i >= 0 ; i--) {
-      let leftValue = await this._getNodeValue(positionPairs[i][0].i) // this will verify before each 
-      let rightValue = await this._getNodeValue(positionPairs[i][1].i) // same
+    for (let i = positionPairs.length - 1; i >= 0 ; i--) {
+      let leftValue = await this._getNodeValue(positionPairs[i][0]) // this will verify before each 
+      let rightValue = await this._getNodeValue(positionPairs[i][1]) // same
       let writeIndex = MMR.parentIndex(positionPairs[i][0])
-      await this.db.set(writeIndex, this.hash(leftValue, rightValue))
+      await this.db.set(writeIndex, this.digest(leftValue, rightValue))
     }
   }
 
-
-  static getNodeLength(leafLength){
-    return this.getNodePosition(leafLength).i
-  }
   static leftChildPosition(position){
+    if(position.h < 0){ throw new Error('Height 0 does not have child')}
     return new Position(position.i - 2**position.h, position.h - 1, false)
   }
   static rightChildPosition(position){
+    if (position.h < 0) { throw new Error('Height 0 does not have child') }
     return new Position(position.i - 1, position.h - 1, true)
   }
   static siblingPosition(position){
@@ -198,7 +214,7 @@ class MMR{
     }
   }
   static peakPositions(leafIndex){ // leafIndex gets used as a kindof accumulator
-    let currentPosition = this.superUmbrellaPeakFromLeafIndex(leafIndex)
+    let currentPosition = this.godPeakFromLeafIndex(leafIndex)
     let peakPositions = []
     while(leafIndex >= 0){
       currentPosition = this.leftChildPosition(currentPosition)
@@ -211,20 +227,20 @@ class MMR{
     return peakPositions
   }
   static localPeakPosition(leafIndex, leafLength){
-    let lastLeafIndex = leafIndex >= leafLength ? leafIndex : leafLength - 1
+    let lastLeafIndex = leafLength <= leafIndex  ? leafIndex : leafLength - 1
     return MMR._localPeakPosition(leafIndex, MMR.peakPositions(lastLeafIndex))
   }
   static _localPeakPosition(leafIndex, peakPositions){
-    for (var i = 0; i < peakPositions.length; i++) {
-      let currentRange = 2**(peakPositions[i].h - 1)
-      if(leafIndex <= currentRange - 1){
+    for (let i = 0; i < peakPositions.length; i++) {
+      let currentRange = 2**(peakPositions[i].h)
+      if(leafIndex < currentRange){
         return peakPositions[i]
       }else{
-        leafPosition -= currentRange
+        leafIndex -= currentRange
       }
     }
   }
-  static mountainPositions(currentPosition, targetIndex){ // positions to hash after appending
+  static _mountainPositions(currentPosition, targetIndex){ // positions to hash after appending
     let mountainPositions = []
     while (currentPosition.h > 0) {
       let children = [this.leftChildPosition(currentPosition), this.rightChildPosition(currentPosition)]
@@ -237,19 +253,19 @@ class MMR{
     }
     return mountainPositions
   }
-  static superUmbrellaPeakFromLeafIndex(leafIndex){ //hopeuflly easy to change to super-umbrella too
+  static godPeakFromLeafIndex(leafIndex){ // imaginary peak that is above all nodes
     let peakHeight = 0
     while(2**peakHeight <= leafIndex + 1){ peakHeight++ }
-    return [2**(peakHeight + 1) - 2, peakHeight, false]
+    return new Position(2**(peakHeight + 1) - 2, peakHeight, false)
   }
   static getNodePosition(leafIndex){ //leafIndex >= 2**exponent
     //so if this took leaf length, it could do 3 seperate steps
     // 1-get peaks; 2-get local peak; 3-traverse from local peak
-    let currentPosition = this.superUmbrellaPeakFromLeafIndex(leafIndex) // would work using super-umbrella
+    let currentPosition = this.godPeakFromLeafIndex(leafIndex)
     let accumulator = 0
     while(currentPosition.h > 0){
       let serviceRange = 2**(currentPosition.h - 1)
-      if(leafIndex >= accumulator + serviceRange){ // can be switched to while loop if using super-umbrella
+      if(leafIndex >= accumulator + serviceRange){
         currentPosition = this.rightChildPosition(currentPosition)
         accumulator += serviceRange
       }else{

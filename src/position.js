@@ -1,55 +1,12 @@
-// structure to hold a node's position.
-// an `index` is sufficient to describe the position
-// but object exist to allow lazy computation of height/rightness
-// because computing height and rightness from only index require Log(n) operations
+// structure to hold a node's position. An `index` is sufficient to describe the full position
+// but object exist to cache of height/rightness, because recomputing height and rightness
+// from only index require Log(n) operations
 class Position{
   constructor(index, height, rightness){
-    this.index = index 
-    this.height = height
-    this.rightness = rightness
-
-    Object.defineProperty(this, 'i', {
-      get: () => { return this.index },
-    })
-    Object.defineProperty(this, 'h', {
-      get: () => { 
-        return this.height ? this.height : this.height = MMR.height(this.i) 
-      },
-    })
-    Object.defineProperty(this, 'r', {
-      get: () => { // whether it is a right edge - `true` or a left edge - `false`
-        if(this.rightness === undefined){
-          return this.rightness = MMR.rightness(this.i)
-        } else {
-          return this.rightness
-        }
-      },
-    })
+    this.i = index 
+    this.h = height
+    this.r = rightness // inherent unchanging property of every node index
   }
 }
 
 module.exports = Position
-
-
-  // async _put(value, i){ // has been combined into `put`
-  //   let length = await this.db.nodeLength()
-  //   // let nodePairs = MMR.branchNodes(length, i)
-  //   await this.db.write(value, i)
-  //   // console.log("HHHHH", nodePairs, length, i)
-  //   return this._hashUp( MMR.branchNodes(length, i))
-  // }
-
-
-
-  // static getLeafIndex(nodeIndex){
-  //   let leafIndex = 0
-  //   // let peak = this.peak(nodeIndex)
-  //   while(exponent >= 0){
-
-  //   }
-  //   return leafIndex
-  // }
-
-
-
-  
