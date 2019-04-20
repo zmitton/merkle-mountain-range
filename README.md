@@ -12,6 +12,8 @@ The MMR has many unique properties making it optimal for proving the ordering of
 
 [MMR data structure](https://github.com/juinc/tilap/issues/244) invented by Peter Todd
 
+I have ammended the structure slightly to work better for flyclient (I beleive it will work better for most use-cases). The difference is that the "bagging the peaks" process (used to calculate the merkle-root) by Todd was changed to instead simply digest the peaks as a concatonated array
+
 ## Use
 
 ```
