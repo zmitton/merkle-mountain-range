@@ -4,12 +4,13 @@ A type of merkle tree that could be described as many merkle trees which are the
 
 The MMR has many unique properties making it optimal for proving the ordering of a linked hashlist (as described in [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA))
 
+
+![alt text](mmr.jpg "Logo Title Text 1")
+
+
 ## Resources 
 
 [MMR data structure](https://github.com/juinc/tilap/issues/244) invented by Peter Todd
-
-[Slice Sampling Markov Chain Monte Carlo algorithm](https://en.wikipedia.org/wiki/Slice_sampling) may be useful to efficiently calculate the exponentially distributed deterministic randomness needed to determine which blocks to sample (fly client doesn't seem to specify).
-
 
 ## Use
 
@@ -28,7 +29,7 @@ mmr.append(zeroithLeaf, 0).then(()=>{ console.log(mmr) })
 
 #### Statistics
 
-With 1000 64-byte leaves (2015 macbookpro)
+With (memoryBasedDb) 1000 64-byte leaves (2015 macbookpro)
  - Time per `append()` =  0.000119s
  - Time per `get()` =  0.000289s
 
