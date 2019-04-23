@@ -1,11 +1,6 @@
 const assert   = require('assert');
-
-const MMR      = require('./../src/mmr')
+const MMR      = require('./../src/merkleMountainRange')
 const Position = require('./../src/position')
-// // const MemoryBasedDb = require('./../src/db/memoryBasedDb')
-// const { flyHash }   = require('./../src/hashingFunctions')
-// var expect     = require('chai').expect;
-
 
 describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
   context('#getNodePosition', () => {
@@ -105,7 +100,7 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
 
   context('#parentIndex', () => {
     it('for 62, 61, 5, 65, 44', () => {
-      assert.deepEqual(MMR.parentIndex(new Position(62, 5, false)), 126) //why doesnt this match drawing
+      assert.deepEqual(MMR.parentIndex(new Position(62, 5, false)), 126)
       assert.deepEqual(MMR.parentIndex(new Position(61, 4, true)), 62)
       assert.deepEqual(MMR.parentIndex(new Position(5, 1, true)), 6)
       assert.deepEqual(MMR.parentIndex(new Position(65, 1, false)), 69)
@@ -498,4 +493,3 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
     })
   })
 })
-

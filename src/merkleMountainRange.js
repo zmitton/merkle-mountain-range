@@ -99,11 +99,11 @@ class MMR{
       proofMmr = new MMR(this.digest, new MemoryBasedDb(subtreeLeafIndex + 1))
       let nodes = proofMmr.db.nodes
       let positions = {}
-      for (let i = 0; i < finalPeakPositions.length; i++) {
+      for (let i = 0; i < finalPeakPositions.length; i++) { // log(n)/2
         proofMmr.db.nodes[finalPeakPositions[i].i] = true
         positions[finalPeakPositions[i].i] = finalPeakPositions[i]
       }
-      for (let i = 0; i < leafIndexes.length; i++) {
+      for (let i = 0; i < leafIndexes.length; i++) { // k*2log(n)
         //add final local peak for each
         let finalLocalPeak = MMR._localPeakPosition(leafIndexes[i], finalPeakPositions)
         proofMmr.db.nodes[finalLocalPeak.i] = true
@@ -120,7 +120,7 @@ class MMR{
       }
       //remove all implied nodes (ones which can be calculated based on other nodes that are present)
       let positionIndexes = Object.keys(positions)
-      for (let j = 0; j < positionIndexes.length; j++) {
+      for (let j = 0; j < positionIndexes.length; j++) { // k*log(n)
         if(positions[positionIndexes[j]].h > 0){
           let hasLeftChild = await proofMmr._hasNode(MMR.leftChildPosition(positions[positionIndexes[j]]))
           let hasRightChild = await proofMmr._hasNode(MMR.rightChildPosition(positions[positionIndexes[j]]))
@@ -140,7 +140,8 @@ class MMR{
       this.lock.release()
       return proofMmr
     }
-  }
+  }  
+
   async _getNodeValue(position){
     // its the public function's responsibility to NOT request positions outside leafLength
     let nodeValue = await this.db.get(position.i)
@@ -258,9 +259,7 @@ class MMR{
     while(2**peakHeight <= leafIndex + 1){ peakHeight++ }
     return new Position(2**(peakHeight + 1) - 2, peakHeight, false)
   }
-  static getNodePosition(leafIndex){ //leafIndex >= 2**exponent
-    //so if this took leaf length, it could do 3 seperate steps
-    // 1-get peaks; 2-get local peak; 3-traverse from local peak
+  static getNodePosition(leafIndex){
     let currentPosition = this.godPeakFromLeafIndex(leafIndex)
     let accumulator = 0
     while(currentPosition.h > 0){

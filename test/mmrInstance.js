@@ -6,7 +6,7 @@ assert.rejects = async (promiseThatShouldReject) => {
   )
 }
 
-const MMR = require('./../src/mmr')
+const MMR = require('./../src/merkleMountainRange')
 const Position = require('./../src/position')
 const MemoryBasedDb = require('./../src/db/memoryBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
@@ -139,6 +139,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
   context('#getProof', () => {
     it('should build and return a proof tree', async () => {
       proofMmr = await mmr.getProof([18]) 
+      // console.log(proofMmr)
       assert.deepEqual(Object.keys(proofMmr.db.nodes), [30, 33, 34, 35, 44, 60, 65])
       
       await proofMmr.get(18) // should not reject
