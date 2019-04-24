@@ -1,4 +1,4 @@
-# Merkle Mountain Range
+# <img src="img/logo.png" alt="alt text" width="100" height="whatever"> Merkle Mountain Range
 
 A type of merkle tree that can be visualized as many (perfect) merkle trees which are then combined into 1, by creating a single root from all of their peaks. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it. When appending leaves, nodes are not updated, only appended. This makes for a minimal amount of total hash computations (~2n), while having the useful property that a _merkle inclusion proof_ of a leaf at any time, contains a superset of its _merkle inclusion proof_ at any previous time.
 

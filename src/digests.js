@@ -1,25 +1,32 @@
 const { keccak256 } = require('js-sha3')
-const { toWord } = require( './utils')
+const  shajs  = require('sha.js')
 const Bn = require('bignumber.js')
 
-let keccak256FlyHash = (...nodeValues) => {
-  // deciding against rlp because 1: no need to deserialize. 2:saves need fixed length anyway
-  // 3: adds dependency. 4: may increase storage allocation requirement 
-  // instead difficulty will use a uint256 fixed - problem solved
+// for variable difficulty used in flyClient
+let hashAndSum = (hashingFunction, ...nodeValues) => { 
+  let _bigNumberToBytes32 = (input) => {
+    let str = input.toString(16).padStart(64, '0')
+    return Buffer.from(str, 'hex')
+  }
   let diffucultySum = new Bn(0)
   for (let i = 0; i < nodeValues.length; i++) {
     let currentDifficulty = new Bn('0x' + nodeValues[i].slice(32).toString('hex'))
     diffucultySum = diffucultySum.plus(currentDifficulty)
   }
-  let finalHash = Buffer.from(keccak256(Buffer.concat(nodeValues)), 'hex')
-  let difficultySumBytes = toWord('0x' + diffucultySum.toString(16))
+  let finalHash = Buffer.from(hashingFunction(Buffer.concat(nodeValues)), 'hex')
+  let difficultySumBytes = _bigNumberToBytes32(diffucultySum)
+
   return Buffer.concat([finalHash, difficultySumBytes])
 }
-
-
+let keccak256FlyHash = (...nodeValues) => {
+  return hashAndSum(keccak256, ...nodeValues)
+}
+let sha256FlyHash = (...nodeValues) => {
+  let sha256 = (x) => { return shajs('sha256').update(x).digest('hex') }
+  return hashAndSum(sha256, ...nodeValues)
+}
 let keccak = (a, b) => {
   return Buffer.from(keccak256(Buffer.concat([a, b])),'hex')
 }
 
-
-module.exports  = { keccak256FlyHash, keccak }
+module.exports  = { keccak256FlyHash, sha256FlyHash, keccak, shajs, hashAndSum }

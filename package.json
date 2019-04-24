@@ -1,8 +1,8 @@
 {
   "name": "merkle-mountain-range",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Merkle tree of merkle trees",
-  "main": "src/index.js",
+  "main": "index.js",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha"
   },
@@ -26,10 +26,10 @@
   "homepage": "https://github.com/zmitton/merkle-mountain-range#readme",
   "dependencies": {
     "bignumber.js": "^8.1.1",
-    "ethereumjs-util": "^6.1.0",
     "isomorphic-rpc": "^1.1.0",
     "js-sha3": "^0.8.0",
-    "semaphore-async-await": "^1.5.1"
+    "semaphore-async-await": "^1.5.1",
+    "sha.js": "^2.4.11"
   },
   "devDependencies": {
     "chai": "^4.2.0",
