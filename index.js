@@ -1,4 +1,4 @@
-const MMR = require('./src/merkleMountainRange.js/index.js')
+const MMR = require('./src/merkleMountainRange.js')
 const MemoryBasedDB = require('./src/db/memoryBasedDB.js')
 // const FileBasedDB = require('.src//fileBasedDB.js') // comming soon
 
