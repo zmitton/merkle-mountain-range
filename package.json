@@ -1,6 +1,6 @@
 {
   "name": "merkle-mountain-range",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Merkle tree of merkle trees",
   "main": "index.js",
   "scripts": {

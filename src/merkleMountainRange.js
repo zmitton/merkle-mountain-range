@@ -61,9 +61,9 @@ class MMR{
       }
     }finally{
       this.lock.release()
-      return this.digest(...peakValues) 
-      // note: a single peak differs from its MMR root (it gets hashed a second time)
     }
+    // note: a single peak differs from its MMR root (it gets hashed a second time)
+    return this.digest(...peakValues) 
   }
   async getNodeLength(){ // caching
     if(this._nodeLength == undefined){ // dirty length

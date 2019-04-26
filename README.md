@@ -10,9 +10,26 @@ These unique properties make it optimal for proving the ordering of a linked has
 
 ## Resources 
 
-[MMR data structure](https://github.com/juinc/tilap/issues/244) invented by Peter Todd
+MMR data structure (first described by Peter Todd)
+ 
+ - [Basics](https://github.com/opentimestamps/opentimestamps-server/blob/master/doc/merkle-mountain-range.md)
+ - [Detailed properties and python code](https://github.com/proofchains/python-proofmarshal/blob/master/proofmarshal/mmr.py)
+ - [implimentation / feture recomendations](https://github.com/mimblewimble/grin/blob/master/doc/mmr.md)
+ - [an early proposed application](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2016-May/012715.html)
 
-I have ammended the structure slightly to work better for flyclient (I beleive it will work better for most use-cases). The difference is that the "bagging the peaks" process (used to calculate the merkle-root) by Todd was changed to instead simply digest the peaks as a concatonated array.
+
+I have improved the structure slightly from the above references (by simplifying it). The difference is in the "bagging the peaks" process (used to calculate the merkle-root). Todd's process takes the peaks and creates another merkle tree from them in order to attain a single root. My process is to simply digest the peaks as a concatonated array to attain a single root.
+
+Why?
+
+1. Using Todd's process it was ([by his own admission](https://github.com/proofchains/python-proofmarshal/blob/master/proofmarshal/mmr.py#L139)) very difficult to logically deterine leaf position from an inclusion proof. 
+
+2. The most elegant way of dealing with merkle-proofs is to basically think of them as a sparse tree in which only _some_ of its nodes are present, and where a proof can be considered invalid iff, while traversing said tree, an undefined node is touched, or a node who's children do not hash to itself (more on this below). The _second tree structure_ made from the peaks would not have the same property of being _append only_ and theirfore, would not contain nodes that can be referenced by a perminent _node index_ from the array.
+
+3. The method of instead concatonating the peaks and hashing them is reasonable because the number of peaks is already ~log(n)/2 and theirfore does not present a scaling issue. We _can_ do it this way, and it will work just fine :)
+
+It is possible that some proofs would be very slightly smaller using the other method. For Fly Client and I susspect most aplications, the opposite is true.
+
 
 ## Use
 
