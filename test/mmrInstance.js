@@ -57,6 +57,11 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       let computedNode2Value = await mmr._getNodeValue(new Position(2, 1, false))
       assert.strictEqual(computedNode2Value.toString('hex'), expectedNode2Value)
     })
+    it('get node index 61, which is the hash of 45 and 60', async () => {
+      let expectedNode2Value = '7fc8112768dccd0e5444e7fb0f36c1b1cc1990395695537ca2a3e30b12bd2421000000000000000000000000000000000000000000000000000000404c2c0f34'
+      let computedNode2Value = await mmr._getNodeValue(new Position(61, 4, true))
+      assert.strictEqual(computedNode2Value.toString('hex'), expectedNode2Value)
+    })
   })
 
   context('#getRoot', () => {

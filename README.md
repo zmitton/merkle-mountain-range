@@ -24,12 +24,11 @@ Why?
 
 1. Using Todd's process it was ([by his own admission](https://github.com/proofchains/python-proofmarshal/blob/master/proofmarshal/mmr.py#L139)) very difficult to logically deterine leaf position from an inclusion proof. 
 
-2. The most elegant way of dealing with merkle-proofs is to basically think of them as a sparse tree in which only _some_ of its nodes are present, and where a proof can be considered invalid iff, while traversing said tree, an undefined node is touched, or a node who's children do not hash to itself (more on this below). The _second tree structure_ made from the peaks would not have the same property of being _append only_ and theirfore, would not contain nodes that can be referenced by a perminent _node index_ from the array.
+2. The most elegant way of dealing with merkle-proofs is to basically think of them as a sparse tree in which only _some_ of its nodes are present, and where a proof can be considered invalid iff, while traversing said tree, an undefined node is touched, or a node exists who's children do not hash to itself (more on this below). The _second tree structure_ made from the peaks would not have the same property of being _append only_ and theirfore, would not contain nodes that can be referenced by a perminent _node index_ from the array.
 
 3. The method of instead concatonating the peaks and hashing them is reasonable because the number of peaks is already ~log(n)/2 and theirfore does not present a scaling issue. We _can_ do it this way, and it will work just fine :)
 
-It is possible that some proofs would be very slightly smaller using the other method. For Fly Client and I susspect most aplications, the opposite is true.
-
+It is possible that some proofs would be very slightly smaller using the other method. For Fly Client and I suspect most applications, the opposite is true.
 
 ## Use
 

@@ -89,14 +89,14 @@ class MMR{
       this.lock.release()
     }
   }
-  async getProof(leafIndexes, subtreeLeafIndex){
+  async getProof(leafIndexes, referenceTreeLength){
     let proofMmr
     await this.lock.acquire()
     try{
-      subtreeLeafIndex = subtreeLeafIndex || await this.getLeafLength() - 1 // define length if
+      referenceTreeLength = referenceTreeLength || await this.getLeafLength() // define length if
       // you want proofs to be given against some subtree (instead of the most current tree)
-      let finalPeakPositions = MMR.peakPositions(subtreeLeafIndex)
-      proofMmr = new MMR(this.digest, new MemoryBasedDb(subtreeLeafIndex + 1))
+      let finalPeakPositions = MMR.peakPositions(referenceTreeLength - 1)
+      proofMmr = new MMR(this.digest, new MemoryBasedDb(referenceTreeLength))
       let nodes = proofMmr.db.nodes
       let positions = {}
       for (let i = 0; i < finalPeakPositions.length; i++) { // log(n)/2
