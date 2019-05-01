@@ -28,22 +28,25 @@ class MMR{
     try{
       let leafLength = await this.getLeafLength()
       if(leafIndex == undefined || leafIndex == leafLength){
+        // console.log("INDEX_LENGTH", leafIndex, " ", leafLength)
         let nodePosition = MMR.getNodePosition(leafLength)
         let mountainPositions = MMR._mountainPositions(MMR.localPeakPosition(leafLength, leafLength), nodePosition.i)
         await this.db.set(nodePosition.i, value)
         await this._hashUp(mountainPositions)
         await this._setLeafLength(leafLength + 1)
       } else{
-        throw new Error('Can only append to end of MMR')
+        throw new Error('Can only append to end of MMR (leaf '+leafLength+'). Index '+leafIndex+' given.')
       }
     }finally{
       this.lock.release()
     }
   }
   async appendMany(values, startLeafIndex){
-    startLeafIndex = startLeafIndex || await this.getLeafLength()
+    if(startLeafIndex == undefined){
+      startLeafIndex = await this.getLeafLength()
+    }
     for (let i = 0; i < values.length; i++) {
-      await this.append(values[i], startLeafIndex + i);
+      await this.append(values[i], startLeafIndex + i)
     }
   }
   // async _append(value, nodePosition, localPeakPosition){  }
@@ -69,6 +72,7 @@ class MMR{
     if(this._nodeLength == undefined){ // dirty length
       let leafLength = await this.getLeafLength()
       this._nodeLength = MMR.getNodePosition(leafLength).i
+      // this._nodeLength = MMR.getNodePosition(await this.getLeafLength()).i
     }
     return this._nodeLength
   }

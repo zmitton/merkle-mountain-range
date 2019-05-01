@@ -4,7 +4,7 @@ const Bn = require('bignumber.js')
 
 // for variable difficulty used in flyClient
 let hashAndSum = (hashingFunction, ...nodeValues) => { 
-  let _bigNumberToBytes32 = (input) => {
+  let _numberToBytes32 = (input) => {
     let str = input.toString(16).padStart(64, '0')
     return Buffer.from(str, 'hex')
   }
@@ -14,7 +14,7 @@ let hashAndSum = (hashingFunction, ...nodeValues) => {
     diffucultySum = diffucultySum.plus(currentDifficulty)
   }
   let finalHash = Buffer.from(hashingFunction(Buffer.concat(nodeValues)), 'hex')
-  let difficultySumBytes = _bigNumberToBytes32(diffucultySum)
+  let difficultySumBytes = _numberToBytes32(diffucultySum)
 
   return Buffer.concat([finalHash, difficultySumBytes])
 }

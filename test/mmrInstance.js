@@ -9,42 +9,63 @@ assert.rejects = async (promiseThatShouldReject) => {
 const MMR = require('./../src/merkleMountainRange')
 const Position = require('./../src/position')
 const MemoryBasedDb = require('./../src/db/memoryBasedDb')
+const FileBasedDb = require('./../src/db/fileBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
-const expect = require('chai').expect;
+// const expect = require('chai').expect;
 
-const etcLeafData = require('./fixtures/etcLeafData')
+// const etcLeafData = require('./fixtures/etcLeafData')
+
 
 describe('MerkleMountinRange (MMR) instance/async functions', () => {
-  let mmr, proofMmr
+  let fileBasedMmr, mmr, proofMmr
+  let etcLeafData = []
 
   context('#append', () => {
+    it('open a file based mmr; check leaf/node lengths', async () => {
+      let db = new FileBasedDb('./test/fixtures/etcLeafData.mmr')
+      fileBasedMmr = new MMR(keccak256FlyHash, db)
+      let b = Date.now()
+      let nodeLength = await fileBasedMmr.getNodeLength()
+      let leafLength = await fileBasedMmr.getLeafLength()
+      assert.strictEqual(nodeLength, 1994) // observation only
+      assert.strictEqual(leafLength, 1000)
+      console.log("    Time for 1 append (0-1000) = ", ((Date.now() - b) / 1000) / leafLength)
+    })
+
     it('create an mmr with some leaves; check leaf/node lengths', async () => {
       mmr = new MMR(keccak256FlyHash)
       let b = Date.now()
-      await mmr.appendMany(etcLeafData)
+
+      for (var i = 0; i < 1000; i++) {
+        let leaf = await fileBasedMmr.get(i)
+        etcLeafData.push(leaf)
+        await mmr.append(leaf, i)
+      }
+
       assert.strictEqual(await mmr.getNodeLength(), 1994) // observation only
       assert.strictEqual(await mmr.getLeafLength(), 1000)
-      console.log("    Time for 1 append (0-1000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+      console.log("    Time for 1 memoryBased append (0-1000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
     })
   })
 
   context('#get', () => {
     it('a few targeted `get`s 0, 1, 3, 8 ...999', async () => { 
-      assert.strictEqual(await mmr.get(0), etcLeafData[0])
-      assert.strictEqual(await mmr.get(1), etcLeafData[1])
-      assert.strictEqual(await mmr.get(3), etcLeafData[3])
-      assert.strictEqual(await mmr.get(8), etcLeafData[8])
-      assert.strictEqual(await mmr.get(10), etcLeafData[10])
-      assert.strictEqual(await mmr.get(45), etcLeafData[45])
-      assert.strictEqual(await mmr.get(409), etcLeafData[409])
-      assert.strictEqual(await mmr.get(671), etcLeafData[671])
-      assert.strictEqual(await mmr.get(998), etcLeafData[998])
-      assert.strictEqual(await mmr.get(999), etcLeafData[999])
+      assert.strictEqual( etcLeafData[0].equals(await mmr.get(0)), true)
+      assert.strictEqual( etcLeafData[1].equals(await mmr.get(1)), true)
+      assert.strictEqual( etcLeafData[3].equals(await mmr.get(3)), true)
+      assert.strictEqual( etcLeafData[8].equals(await mmr.get(8)), true)
+      assert.strictEqual( etcLeafData[10].equals(await mmr.get(10)), true)
+      assert.strictEqual( etcLeafData[45].equals(await mmr.get(45)), true)
+      assert.strictEqual( etcLeafData[409].equals(await mmr.get(409)), true)
+      assert.strictEqual( etcLeafData[671].equals(await mmr.get(671)), true)
+      assert.strictEqual( etcLeafData[998].equals(await mmr.get(998)), true)
+      assert.strictEqual( etcLeafData[999].equals(await mmr.get(999)), true)
     })
     it('`get`s every item from etcLeafData individually', async () => {
       let b = Date.now()
       for (let i = 0; i < etcLeafData.length; i++) {
         const leaf = await mmr.get(i)
+        assert.strictEqual(etcLeafData[i].equals(leaf), true)
         assert.strictEqual(leaf, etcLeafData[i])
       }
       console.log("    Time for 1 get (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
