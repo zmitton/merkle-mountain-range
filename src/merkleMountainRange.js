@@ -28,7 +28,6 @@ class MMR{
     try{
       let leafLength = await this.getLeafLength()
       if(leafIndex == undefined || leafIndex == leafLength){
-        // console.log("INDEX_LENGTH", leafIndex, " ", leafLength)
         let nodePosition = MMR.getNodePosition(leafLength)
         let mountainPositions = MMR._mountainPositions(MMR.localPeakPosition(leafLength, leafLength), nodePosition.i)
         await this.db.set(nodePosition.i, value)

@@ -5,15 +5,11 @@ assert.rejects = async (promiseThatShouldReject) => {
     (error) => { assert.strictEqual(!!error, true) }
   )
 }
-
 const MMR = require('./../src/merkleMountainRange')
 const Position = require('./../src/position')
 const MemoryBasedDb = require('./../src/db/memoryBasedDb')
 const FileBasedDb = require('./../src/db/fileBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
-// const expect = require('chai').expect;
-
-// const etcLeafData = require('./fixtures/etcLeafData')
 
 
 describe('MerkleMountinRange (MMR) instance/async functions', () => {
@@ -29,7 +25,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       let leafLength = await fileBasedMmr.getLeafLength()
       assert.strictEqual(nodeLength, 1994) // observation only
       assert.strictEqual(leafLength, 1000)
-      console.log("    Time for 1 append (0-1000) = ", ((Date.now() - b) / 1000) / leafLength)
+      console.log("    Time for 1 (memoryBased) append (0-1000) = ", ((Date.now() - b) / 1000) / leafLength)
     })
 
     it('create an mmr with some leaves; check leaf/node lengths', async () => {
@@ -68,7 +64,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
         assert.strictEqual(etcLeafData[i].equals(leaf), true)
         assert.strictEqual(leaf, etcLeafData[i])
       }
-      console.log("    Time for 1 get (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+      console.log("    Time for 1 fileBased get and then 1 memoryBased put (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
     })
   })
 
