@@ -47,7 +47,6 @@ class FileBasedDB {
       })
     })
   }
-
   async getLeafLength(){
     let lengthBuffer = await this.get(-1)
     return lengthBuffer ? lengthBuffer.readUInt32BE(WORD_SIZE - 4) : 0
@@ -55,15 +54,17 @@ class FileBasedDB {
   async setLeafLength(leafLength){ // to do: deallocate the deleted part of the file
     let lengthBuffer = Buffer.alloc(WORD_SIZE)
     lengthBuffer.writeUInt32BE(leafLength, WORD_SIZE - 4)
-    return this.set(-1, lengthBuffer)
+    await this.set(-1, lengthBuffer)
+    return new Promise((resolve, reject)=>{
+      fileSystem.fsync(self.fd, (e, r) => { 
+        if(e){
+          reject(e)
+        }else{
+          resolve(r)
+        }
+      })
+    })
   }
 }
 
-
 module.exports = FileBasedDB
-
-
-
-
-
-

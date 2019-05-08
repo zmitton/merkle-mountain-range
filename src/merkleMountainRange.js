@@ -93,6 +93,8 @@ class MMR{
     }
   }
   async getProof(leafIndexes, referenceTreeLength){
+    // move most of this into a static function that takes the same args and returns a list of positions
+    // this instance function can continue to have same behavior
     let proofMmr
     await this.lock.acquire()
     try{
