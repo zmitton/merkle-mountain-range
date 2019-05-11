@@ -7,7 +7,7 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
     it('single index', () => { assert.equal(MMR.getNodePosition(5).i, 8) })
     it('single index', () => { assert.equal(MMR.getNodePosition(11).i, 19) })
     it('single index', () => { assert.equal(MMR.getNodePosition(32).i, 63) })
-    it('many indexes', () => {
+    it('matches many known indexes', () => {
       let leafIndexToNodeIndexMappings = [
         [0, 0], [1, 1], [2, 3], [3, 4], [4,7], [5,8], [6,10], [7,11], 
         [8,15], [9,16], [10,18], [11,19], [12,22], [13,23], [14,25], 
@@ -286,14 +286,14 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
 
   context('#mountainPositions', () => {
     it('of peakPosition 0 -> 0', () => {
-      assert.deepEqual([], MMR._mountainPositions(new Position(0, 0, false), 0))
+      assert.deepEqual([], MMR.mountainPositions(new Position(0, 0, false), 0))
     })
     it('of peakPosition 2 -> 0', () => {
       let expectedPositions = [[
         new Position(0, 0, false),
         new Position(1, 0, true)
       ]]
-      let computedPositions = MMR._mountainPositions(new Position(2, 1, false), 0)
+      let computedPositions = MMR.mountainPositions(new Position(2, 1, false), 0)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 2 -> 1', () => {
@@ -301,12 +301,12 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
         new Position(0, 0, false),
         new Position(1, 0, true)
       ]]
-      let computedPositions = MMR._mountainPositions(new Position(2, 1, false), 1)
+      let computedPositions = MMR.mountainPositions(new Position(2, 1, false), 1)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 3 -> 3', () => {
       let expectedPositions = []
-      let computedPositions = MMR._mountainPositions(new Position(3, 0, false), 3)
+      let computedPositions = MMR.mountainPositions(new Position(3, 0, false), 3)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 6 -> 0 and 6 -> 1', () => {
@@ -319,9 +319,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(1, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(6, 2, false), 0)
+      let computedPositions = MMR.mountainPositions(new Position(6, 2, false), 0)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(6, 2, false), 1)
+      computedPositions = MMR.mountainPositions(new Position(6, 2, false), 1)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 6 -> 3 and 6 -> 4', () => {
@@ -334,14 +334,14 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(4, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(6, 2, false), 3)
+      let computedPositions = MMR.mountainPositions(new Position(6, 2, false), 3)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(6, 2, false), 4)
+      computedPositions = MMR.mountainPositions(new Position(6, 2, false), 4)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 7 -> 7', () => {
       let expectedPositions = []
-      let computedPositions = MMR._mountainPositions(new Position(7, 0, false), 7)
+      let computedPositions = MMR.mountainPositions(new Position(7, 0, false), 7)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 9 -> 7 and 9 -> 8', () => {
@@ -349,14 +349,14 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
         new Position(7, 0, false),
         new Position(8, 0, true)
       ]]
-      let computedPositions = MMR._mountainPositions(new Position(9, 1, false), 7)
+      let computedPositions = MMR.mountainPositions(new Position(9, 1, false), 7)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(9, 1, false), 8)
+      computedPositions = MMR.mountainPositions(new Position(9, 1, false), 8)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 10 -> 10', () => {
       let expectedPositions = []
-      let computedPositions = MMR._mountainPositions(new Position(10, 0, false), 10)
+      let computedPositions = MMR.mountainPositions(new Position(10, 0, false), 10)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 14 -> 3 and 14 -> 4', () => {
@@ -372,9 +372,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(4, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(14, 3, false), 3)
+      let computedPositions = MMR.mountainPositions(new Position(14, 3, false), 3)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(14, 3, false), 4)
+      computedPositions = MMR.mountainPositions(new Position(14, 3, false), 4)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 14 -> 7 and 14 -> 8', () => {
@@ -390,9 +390,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(8, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(14, 3, false), 7)
+      let computedPositions = MMR.mountainPositions(new Position(14, 3, false), 7)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(14, 3, false), 8)
+      computedPositions = MMR.mountainPositions(new Position(14, 3, false), 8)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 45 -> 31 and 45 -> 32', () => {
@@ -408,9 +408,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(32, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(45, 3, false), 31)
+      let computedPositions = MMR.mountainPositions(new Position(45, 3, false), 31)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(45, 3, false), 32)
+      computedPositions = MMR.mountainPositions(new Position(45, 3, false), 32)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 45 -> 34 and 45 -> 35', () => {
@@ -426,9 +426,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(35, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(45, 3, false), 34)
+      let computedPositions = MMR.mountainPositions(new Position(45, 3, false), 34)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(45, 3, false), 35)
+      computedPositions = MMR.mountainPositions(new Position(45, 3, false), 35)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 45 -> 38 and 45 -> 39', () => {
@@ -444,9 +444,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(39, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(45, 3, false), 38)
+      let computedPositions = MMR.mountainPositions(new Position(45, 3, false), 38)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(45, 3, false), 39)
+      computedPositions = MMR.mountainPositions(new Position(45, 3, false), 39)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 45 -> 41 and 45 -> 42', () => {
@@ -462,9 +462,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(42, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(45, 3, false), 41)
+      let computedPositions = MMR.mountainPositions(new Position(45, 3, false), 41)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(45, 3, false), 42)
+      computedPositions = MMR.mountainPositions(new Position(45, 3, false), 42)
       assert.deepEqual(computedPositions, expectedPositions)
     })
     it('of peakPosition 62 -> 22 and 62 -> 23', () => {
@@ -486,9 +486,9 @@ describe('MerkleMountinRange (MMR) static/synchronous class functions' , () => {
           new Position(23, 0, true)
         ]
       ]
-      let computedPositions = MMR._mountainPositions(new Position(62, 5, false), 22)
+      let computedPositions = MMR.mountainPositions(new Position(62, 5, false), 22)
       assert.deepEqual(computedPositions, expectedPositions)
-      computedPositions = MMR._mountainPositions(new Position(62, 5, false), 23)
+      computedPositions = MMR.mountainPositions(new Position(62, 5, false), 23)
       assert.deepEqual(computedPositions, expectedPositions)
     })
   })

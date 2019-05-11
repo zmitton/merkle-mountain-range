@@ -174,7 +174,6 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       proofMmr.db.nodes[32] = etcLeafData[17]
       await proofMmr.get(16) // sufficient now to prove leaves 16 and 17
       await proofMmr.get(17)
-
     })
   })
 

@@ -1,7 +1,7 @@
 {
   "name": "merkle-mountain-range",
-  "version": "0.2.1",
-  "description": "Merkle tree of merkle trees",
+  "version": "0.3.0",
+  "description": "Merkle tree optimized for lists of sequentially appended data and its proofs",
   "main": "index.js",
   "scripts": {
     "test": "npx mocha"
@@ -20,9 +20,6 @@
   ],
   "author": "Zac Mitton",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/zmitton/merkle-mountain-range/issues"
-  },
   "homepage": "https://github.com/zmitton/merkle-mountain-range#readme",
   "dependencies": {
     "bignumber.js": "^8.1.1",
