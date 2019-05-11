@@ -85,7 +85,6 @@ class MMR{
     }
   }
   async getProof(leafIndexes, referenceTreeLength){ // returns a sparse MMR containing the leaves specified
-    let self = this
     let proofMmr
     await this.lock.acquire()
     try{
@@ -96,7 +95,8 @@ class MMR{
 
       let nodeIndexes = Object.keys(positions)
       await Promise.all(nodeIndexes.map( async (i) => {
-        let nodeValue = await self._getNodeValue(positions[i])
+        console.log('asdfsdf', this._getNodeValue)
+        let nodeValue = await this._getNodeValue(positions[i])
         nodes[i] = nodeValue
       }))
       proofMmr = new MMR(this.digest, new MemoryBasedDb(referenceTreeLength, nodes))
