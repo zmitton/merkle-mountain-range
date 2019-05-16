@@ -1,6 +1,6 @@
 {
   "name": "merkle-mountain-range",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Merkle tree optimized for lists of sequentially appended data and its proofs",
   "main": "index.js",
   "scripts": {

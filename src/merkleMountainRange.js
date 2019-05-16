@@ -95,7 +95,6 @@ class MMR{
 
       let nodeIndexes = Object.keys(positions)
       await Promise.all(nodeIndexes.map( async (i) => {
-        console.log('asdfsdf', this._getNodeValue)
         let nodeValue = await this._getNodeValue(positions[i])
         nodes[i] = nodeValue
       }))
@@ -146,8 +145,8 @@ class MMR{
   }
   async _hashUp(positionPairs){
     for (let i = positionPairs.length - 1; i >= 0 ; i--) {
-      let leftValue = await this._getNodeValue(positionPairs[i][0]) // this will verify before each 
-      let rightValue = await this._getNodeValue(positionPairs[i][1]) // same
+      let leftValue = await this._getNodeValue(positionPairs[i][0])
+      let rightValue = await this._getNodeValue(positionPairs[i][1])
       let writeIndex = MMR.parentIndex(positionPairs[i][0])
       await this.db.set(writeIndex, this.digest(leftValue, rightValue))
     }
@@ -257,11 +256,11 @@ class MMR{
         let hasLeftChild = MMR._hasPosition(positions, MMR.leftChildPosition(positions[positionIndexes[j]]))
         let hasRightChild = MMR._hasPosition(positions, MMR.rightChildPosition(positions[positionIndexes[j]]))
         if(hasLeftChild && hasRightChild){
-          impliedIndexes.push(positionIndexes[j])
+          impliedIndexes.push(positionIndexes[j]) // don't remove them yet because recursion will be slower
         }
       }
     }
-    // remove implied nodes
+    // finally remove implied nodes
     for (var i = 0; i < impliedIndexes.length; i++) { // k*log(n)
       impliedIndexes[i]
       delete positions[impliedIndexes[i]]
@@ -272,11 +271,14 @@ class MMR{
   static _hasPosition(nodes, position){
     if(nodes[position.i]){
       return true
-    }else if( position.h > 0){
-      let hasLeftChild = MMR._hasPosition(nodes, MMR.leftChildPosition(position))
-      let hasRightChild = MMR._hasPosition(nodes, MMR.rightChildPosition(position))
-      return hasLeftChild && hasRightChild
-    }else{
+    }else{ 
+      if( position.h > 0){
+        if(MMR._hasPosition(nodes, MMR.leftChildPosition(position))){
+          if(MMR._hasPosition(nodes, MMR.rightChildPosition(position))){
+            return true
+          }
+        }
+      }
       return false
     }
   }
