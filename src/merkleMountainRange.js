@@ -153,11 +153,11 @@ class MMR{
   }
 
   static leftChildPosition(position){
-    if(position.h < 0){ throw new Error('Height 0 does not have child')}
+    if(position.h <= 0){ throw new Error('Height 0 does not have child')}
     return new Position(position.i - 2**position.h, position.h - 1, false)
   }
   static rightChildPosition(position){
-    if (position.h < 0) { throw new Error('Height 0 does not have child') }
+    if (position.h <= 0) { throw new Error('Height 0 does not have child') }
     return new Position(position.i - 1, position.h - 1, true)
   }
   static siblingPosition(position){
@@ -282,7 +282,6 @@ class MMR{
       return false
     }
   }
-
 }
 
 module.exports = MMR
