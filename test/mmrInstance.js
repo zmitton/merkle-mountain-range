@@ -1,4 +1,5 @@
-const assert = require('assert');
+const assert = require('assert')
+const fileSystem = require('fs') 
 assert.rejects = async (promiseThatShouldReject) => {
   await promiseThatShouldReject.then(
     () => { throw new Error('Expected method to reject.') },
@@ -12,43 +13,72 @@ const FileBasedDb = require('./../src/db/fileBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
 
 
+
 describe('MerkleMountinRange (MMR) instance/async functions', () => {
   let fileBasedMmr, mmr, proofMmr
   let etcLeafData = []
 
   context('#append', () => {
     it('open a file based mmr; check leaf/node lengths', async () => {
-      let db = new FileBasedDb('./test/fixtures/etcLeafData.mmr')
-      fileBasedMmr = new MMR(keccak256FlyHash, db)
-      let b = Date.now()
+      let fileBasedDb = new FileBasedDb('./test/fixtures/etcLeafData.mmr')
+      fileBasedMmr = new MMR(keccak256FlyHash, fileBasedDb)
       let nodeLength = await fileBasedMmr.getNodeLength()
       let leafLength = await fileBasedMmr.getLeafLength()
-      assert.strictEqual(nodeLength, 1994) // observation only
       assert.strictEqual(leafLength, 1000)
+      assert.strictEqual(nodeLength, 1994) // observation only
     })
 
-    it('create an mmr with some leaves; check leaf/node lengths', async () => {
+    it('create an in-memory mmr with some leaves for testing; check leaf/node lengths', async () => {
       mmr = new MMR(keccak256FlyHash)
-      let b = Date.now()
 
       for (var i = 0; i < 1000; i++) {
-        let leaf = await fileBasedMmr.get(i)
-        etcLeafData.push(leaf)
+        let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
+        etcLeafData.push(leaf) // for testing against later
         await mmr.append(leaf, i)
       }
+      let nodeLength = await fileBasedMmr.getNodeLength()
+      let leafLength = await fileBasedMmr.getLeafLength()
+      assert.strictEqual(leafLength, 1000)
+      assert.strictEqual(nodeLength, 1994) // observation only
+    })
 
-      assert.strictEqual(await mmr.getNodeLength(), 1994) // observation only
-      assert.strictEqual(await mmr.getLeafLength(), 1000)
-      console.log("    Time for 1 memoryBased append (0-1000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+    it('performance/timing', async () => {
+      let tempMmr = new MMR(keccak256FlyHash)
+      let b
+      let NUM_LOOPS = 500
 
-      // let persistentMmr = new mmr(keccak256FlyHash, fileBasedMmr)
-      // for (var i = 0; i < 1000; i++) {
-      //   let leaf = await fileBasedMmr.get(i)
-      //   etcLeafData.push(leaf)
-      //   await persistentMmr.append(leaf)
-      // }
-      // console.log("    Time for 1 fileBased append (1000-2000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
-      // await persistentMmr.delete(1000)
+      b = Date.now()
+      for (var i = 0; i < NUM_LOOPS; i++) {
+        await mmr.get(i)
+      }
+      console.log("    Seconds for 1 memoryBased get ( ~1000 leaves) =       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      
+      b = Date.now()
+      for (var i = 0; i < NUM_LOOPS; i++) {
+        let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
+        await tempMmr.append(leaf, i)
+      }
+      console.log("    Seconds for 1 memoryBased append (0 to 1000 leaves) = ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+
+      b = Date.now()
+      for (var i = 0; i < NUM_LOOPS; i++) {
+        await fileBasedMmr.get(i)
+      }
+      console.log("    Seconds for 1 fileBased get (tree ~1000 leaves) =     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+
+      let leaf = await fileBasedMmr.get(0)
+      let NUM_APPEND_LOOPS = 250
+      let tempFileBasedDb = new FileBasedDb('./test/fixtures/temp.mmr')
+      let tempFileBasedMmr = new MMR(keccak256FlyHash, tempFileBasedDb)
+
+      await tempFileBasedMmr.delete(0) // reset database
+      b = Date.now()
+      for (var i = 0; i < NUM_APPEND_LOOPS; i++) {
+        await tempFileBasedMmr.append(leaf)
+      }
+      console.log("    Seconds for 1 fileBased append (tree ~1000 leaves) =  ", ((Date.now() - b) / 1000) / NUM_APPEND_LOOPS)
+      await tempFileBasedMmr.delete(0) // reset database
+      fileSystem.unlinkSync('./test/fixtures/temp.mmr')
     })
   })
 
@@ -72,7 +102,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
         assert.strictEqual(etcLeafData[i].equals(leaf), true)
         assert.strictEqual(leaf, etcLeafData[i])
       }
-      console.log("    Time for 1 fileBased get and then 1 memoryBased put (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+      // console.log("    Time for 1 fileBased get and then 1 memoryBased append (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
     })
   })
 

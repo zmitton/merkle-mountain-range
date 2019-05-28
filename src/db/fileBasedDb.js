@@ -27,7 +27,9 @@ class FileBasedDB {
   }
   async set(index, value){
     let fd = this.fd
-    if(value == undefined){ value = Buffer.alloc(WORD_SIZE) }
+    if(value == undefined || Buffer.alloc(WORD_SIZE).equals(value)){
+      throw new Error('cannot set node to an empty buffer')
+    }
     return new Promise((resolve, reject)=>{
       fileSystem.write(fd, value, 0, WORD_SIZE, ((index + 1) * WORD_SIZE), (e, r) => { 
         if(e){
@@ -46,14 +48,18 @@ class FileBasedDB {
     let fd = this.fd
     let lengthBuffer = Buffer.alloc(WORD_SIZE)
     lengthBuffer.writeUInt32BE(leafLength, WORD_SIZE - 4)
-    await this.set(-1, lengthBuffer)
     return new Promise((resolve, reject)=>{
-      fileSystem.fsync(fd, (e, r) => { 
+      fileSystem.write(fd, lengthBuffer, 0, WORD_SIZE, 0, (e, r) => { 
         if(e){
           reject(e)
         }else{
-          console.log("zac")
-          resolve(r)
+          fileSystem.fsync(fd, (e, r) => { 
+            if(e){
+              reject(e)
+            }else{
+              resolve(r)
+            }
+          })
         }
       })
     })
