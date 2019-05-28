@@ -25,7 +25,6 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       let leafLength = await fileBasedMmr.getLeafLength()
       assert.strictEqual(nodeLength, 1994) // observation only
       assert.strictEqual(leafLength, 1000)
-      console.log("    Time for 1 (memoryBased) append (0-1000) = ", ((Date.now() - b) / 1000) / leafLength)
     })
 
     it('create an mmr with some leaves; check leaf/node lengths', async () => {
@@ -41,6 +40,15 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       assert.strictEqual(await mmr.getNodeLength(), 1994) // observation only
       assert.strictEqual(await mmr.getLeafLength(), 1000)
       console.log("    Time for 1 memoryBased append (0-1000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+
+      // let persistentMmr = new mmr(keccak256FlyHash, fileBasedMmr)
+      // for (var i = 0; i < 1000; i++) {
+      //   let leaf = await fileBasedMmr.get(i)
+      //   etcLeafData.push(leaf)
+      //   await persistentMmr.append(leaf)
+      // }
+      // console.log("    Time for 1 fileBased append (1000-2000) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+      // await persistentMmr.delete(1000)
     })
   })
 

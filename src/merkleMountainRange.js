@@ -49,14 +49,13 @@ class MMR{
     }
   }
   async getRoot(leafIndex){
-    let peakValues
+    let peakValues = []
     await this.lock.acquire()
     try{
       if(leafIndex == undefined){
         leafIndex = await this.getLeafLength() - 1
       }
       let peakPositions = MMR.peakPositions(leafIndex)
-      peakValues = []
       for (let i = 0; i < peakPositions.length; i++) {
         peakValues.push(await this._getNodeValue(peakPositions[i]))
       }
@@ -107,7 +106,7 @@ class MMR{
   }
 
   async _getNodeValue(position){
-    // caller MUST request a position within leafLength
+    // caller's responsibility to request a position within leafLength
     let nodeValue = await this.db.get(position.i)
     if(nodeValue){
       return nodeValue
@@ -119,7 +118,6 @@ class MMR{
       throw new Error('Missing node in db')
     }
   }
-
   async _verifyPath(currentPosition, currentValue, leafPosition) { // verifies as it walks
     if (currentPosition.i == leafPosition.i) { // base case
       return currentValue
@@ -141,7 +139,6 @@ class MMR{
   async _setLeafLength(leafLength){
     await this.db.setLeafLength(leafLength)
     this._leafLength = leafLength
-    this._nodeLength = MMR.getNodePosition(leafLength).i
   }
   async _hashUp(positionPairs){
     for (let i = positionPairs.length - 1; i >= 0 ; i--) {
@@ -151,6 +148,7 @@ class MMR{
       await this.db.set(writeIndex, this.digest(leftValue, rightValue))
     }
   }
+
 
   static leftChildPosition(position){
     if(position.h <= 0){ throw new Error('Height 0 does not have child')}
@@ -267,20 +265,16 @@ class MMR{
     }
     return positions
   }
-
   static _hasPosition(nodes, position){
-    if(nodes[position.i]){
-      return true
-    }else{ 
-      if( position.h > 0){
-        if(MMR._hasPosition(nodes, MMR.leftChildPosition(position))){
-          if(MMR._hasPosition(nodes, MMR.rightChildPosition(position))){
-            return true
-          }
-        }
+    let has = !!nodes[position.i]
+    if (!has && position.h > 0){
+      if(MMR._hasPosition(nodes, MMR.leftChildPosition(position))
+        && MMR._hasPosition(nodes, MMR.rightChildPosition(position))
+      ){
+        has = true
       }
-      return false
     }
+    return has
   }
 }
 
