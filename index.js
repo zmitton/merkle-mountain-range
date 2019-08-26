@@ -1,8 +1,8 @@
 const MMR = require('./src/merkleMountainRange.js')
 const MemoryBasedDB = require('./src/db/memoryBasedDB.js')
-const FileBasedDB = require('./src/db/fileBasedDB.js') // comming soon
+const FileBasedDB = require('./src/db/fileBasedDB.js')
 
 const Position = require('./src/position.js')
-const Digests = require('./src/digests')
+const _Digests = require('./src/digests')
 
-module.exports = { MMR, MemoryBasedDB, FileBasedDB, Position, Digests }
+module.exports = { MMR, MemoryBasedDB, FileBasedDB, Position, _Digests }

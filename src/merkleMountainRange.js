@@ -3,9 +3,9 @@ const Position      = require('./position')
 const MemoryBasedDb = require('./db/memoryBasedDb')
 
 class MMR{
-  constructor(hashingFunction, db){
+  constructor(hashingFunction, db = new MemoryBasedDb()){
     this.digest = hashingFunction
-    this.db  = db || new MemoryBasedDb()
+    this.db  = db
     this.lock = new Lock(1)
   }
   async get(leafIndex){
@@ -196,12 +196,12 @@ class MMR{
       }
     }
   }
-  static mountainPositions(currentPosition, targetIndex){ // positions to hash after appending
+  static mountainPositions(currentPosition, targetNodeIndex){ // positions to hash after appending
     let mountainPositions = []
     while (currentPosition.h > 0) {
       let children = [this.leftChildPosition(currentPosition), this.rightChildPosition(currentPosition)]
       mountainPositions.push(children)
-      if(targetIndex > currentPosition.i - 2**currentPosition.h - currentPosition.h + 1){
+      if(targetNodeIndex > currentPosition.i - 2**currentPosition.h - currentPosition.h + 1){
         currentPosition = children[1]
       }else{
         currentPosition = children[0]

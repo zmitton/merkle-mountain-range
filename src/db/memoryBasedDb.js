@@ -1,5 +1,3 @@
-const WORD_SIZE = 64
-
 class MemoryBasedDb {
   constructor(...args){
     if(args[0] == undefined || typeof args[0] == 'number'){
