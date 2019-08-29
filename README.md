@@ -80,5 +80,35 @@ Testing uses mocha. It should work to simply pull down the repo, do an `npm inst
  - `Digests` has been deprecated (now `_Digests`) because it doesn't belong in this repo. You should include your own hash function package. If it does not have the required function signature - i.e: `<buffer>` in `<buffer>` out, then you will have to wrap in in one that does before using it. The digest functions used in Flyclient will be available through a seperate "flyclient" npm package.
 
 
+### Merkle Proofs & Serialization Format
 
+The merkle Proof data is essentially the same data of a regular MMR (leafLength and nodes) except with only _some_ of the nodes (rather than of all of them). For the data might look like this:
+
+```
+leafLength: 34
+nodes:
+  { 
+    30 : 0x1234567890,
+    32 : 0x1234123434,
+    33 : 0x2143658709
+  }
+```
+
+To Serialize this data we first arrange it into very specifically arranged arrays of byte arrays for RLP encoding. On the other end, the software knows that the first item is leafLength and the second item is an array of nodes, and that each node is of length 2 (to represent the node key pairs):
+
+```
+[
+  <Buffer 22>,
+  [ <Buffer 1e>, <Buffer 12 34 56 78 90> ],
+  [ <Buffer 20>, <Buffer 12 34 12 34 34> ],
+  [ <Buffer 21>, <Buffer 21 43 65 87 09> ]
+]
+```
+
+Finally we can RLP-encode the data:
+
+```
+<Buffer d9 22 c7 1e 85 12 34 56 78 90 c7 20 85 12 34 12 34 34 c7 21 85 21 43 65 87 09>
+
+```
 
