@@ -2,6 +2,8 @@
 
 A type of merkle tree that can be visualized as many (perfect) merkle trees which are then combined into 1, by creating a single root from all of their peaks. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it. When appending leaves, nodes are not updated, only appended. This makes for a minimal amount of total hash computations (~2n), while having the useful property that a _merkle inclusion proof_ of a leaf at any time, contains a superset of its _merkle inclusion proof_ at any previous time.
 
+A Golang version of this can be found [here](https://github.com/zmitton/go-merklemountainrange).
+
 These unique properties make it optimal for proving the ordering of a linked hashlist (read blockchain) as described in [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA).
 
 
@@ -56,8 +58,6 @@ With 1000 64-byte leaves (2015 macbookpro)
    - Time per `append()` =  0.000301s
    - Time per `get()` =  0.000719s
    - Time per `mmr._getNodeValue(MMR.getNodePosition(leafIndex))` about 0.00004
-
-The FileBasedDb is now working!
 
 The cost of `mmr.get(leafIndex)` can be reduced by instead using `mmr._getNodeValue(MMR.getNodePosition(leafIndex))`. Because `get()` verifies as it traverses down the tree. Makes it easy to not mess up verification. You can technically get a leaf much faster with a single read (that does not verify) by calculating the position and reading it directly (O(1) instead of O(logn)).
 
