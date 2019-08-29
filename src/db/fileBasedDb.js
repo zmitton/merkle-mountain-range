@@ -1,23 +1,29 @@
 const fileSystem = require('fs')
+// The fist 16 bytes of any fileBasedDb (`.mmr`) file contain the wordSize and the leafLength respectively. For 
+// instance 0000 0000 0000 0040 0000 0000 0000 03e8 is a db with wordsize 64 and leafLength 1000.
 
 class FileBasedDB {
-  constructor(filePath, wordSize = 64){ //
-    this.filePath = filePath
-    this.fd = fileSystem.openSync(filePath, 'a+')
-    this._setWordSize(wordSize)
+  constructor(){
+    throw new Error('Please use the static `create` and `open` methods to construct a FileBasedDB')
   }
-  // constructor(filePath, wordSize = 64){ //
-  //   this.filePath = filePath
-  //   this.fd = fileSystem.openSync(filePath, 'a+')
-  //   this._setWordSize(wordSize)
-  // }
-  // static open(filePath, wordSize){
-  //   fileSystem.openSync(filePath, 'r+')
-  //   return new this(filePath, wordSize)
-  // }
+  static create(filePath, wordSize = 64){// throws if file already exists
+    return this._openOrCreate(filePath, 'ax+', wordSize)
+  }
+  static open(filePath){// throws if file does not exist
+    return this._openOrCreate(filePath, 'r+')
+  }
+  static _openOrCreate(filePath, fileSystemFlags, wordSize){
+    let db = Object.create(this.prototype)
+    db.filePath = filePath
+    db.fd = fileSystem.openSync(filePath, fileSystemFlags)
+    if(wordSize){
+      db._setWordSize(wordSize)
+    }
+    return db
+  }
 
   async get(_index){
-    let index = _index + 1 // shift 1 because index zero holds meta-data (leafLength and wordSize)
+    let index = _index + 1 // shift 1 because index zero holds meta-data (wordSize and leafLength)
     let wordSize = await this._getWordSize()
     var indexToFirstByte = index*wordSize
     var chunk = Buffer.alloc(wordSize)
@@ -38,7 +44,7 @@ class FileBasedDB {
   async set(index, value){
     let wordSize = await this._getWordSize()
     if(value == undefined || Buffer.alloc(wordSize).equals(value)){
-      throw new Error('cannot set node to an empty buffer')
+      throw new Error('Can not set nodeValue as an empty buffer')
     }
     return new Promise((resolve, reject)=>{
       fileSystem.write(this.fd, value, 0, wordSize, ((index + 1) * wordSize), (e, r) => { 
@@ -50,12 +56,7 @@ class FileBasedDB {
       })
     })
   }
-  // async getLeafLength(){ //only supports 4byte size, but should eventually support 8byte
-  //   let lengthBuffer = await this.get(-1)
-  //   // let wordSize = await this._getWordSize()
-  //   return lengthBuffer ? lengthBuffer.readUInt32BE(0) : 0
-  //   // return lengthBuffer ? lengthBuffer.readUInt32BE(wordSize - 4) : 0
-  // }
+
   async getLeafLength(){
     var leafLengthBuffer = Buffer.alloc(4)
     return new Promise((resolve, reject)=>{
@@ -70,7 +71,6 @@ class FileBasedDB {
   }
 
   async setLeafLength(leafLength){ // to do: deallocate the deleted part of the file
-    // let wordSize = await this._getWordSize()
     let lengthBuffer = Buffer.alloc(4)
     lengthBuffer.writeUInt32BE(leafLength, 0)
     return new Promise((resolve, reject)=>{
@@ -89,16 +89,26 @@ class FileBasedDB {
       })
     })
   }
+  async getNodes(){
+    let wordSize = await this._getWordSize()
+    let stats = fs.statSync(this.filePath)
+    let nodeLength = (stats.size - wordSize) / wordSize
 
-  _setWordSize(wordSize){
-    let wordSizeBuffer = Buffer.alloc(8)
-    wordSizeBuffer.writeUInt32BE(wordSize, 4)
-    fileSystem.writeSync(this.fd, wordSizeBuffer, 0, 8, 0)
+    let nodes = {}
+    for (var i = 0; i < nodeLength; i++) {
+      node[i] = await this.get(i)
+    }
+    return nodes
   }
-
+  _setWordSize(wordSize){
+    if(!wordSize || wordSize < 16){
+      throw new Error('Wordsize of' + wordSize + 'not supported for FileBasedDB')
+    }
+    let wordSizeBuffer = Buffer.alloc(16)
+    wordSizeBuffer.writeUInt32BE(wordSize, 4)
+    fileSystem.writeSync(this.fd, wordSizeBuffer, 0, 16, 0)
+  }
   async _getWordSize(){
-    let self = this
-// return 64
     if (!this._wordSize){
       var wordSizeBuffer = Buffer.alloc(4)
       return new Promise((resolve, reject)=>{
@@ -109,8 +119,8 @@ class FileBasedDB {
             if(wordSizeBuffer.equals(Buffer.alloc(4))){
               reject(new Error("Db has undefined wordSize" + wordSizeBuffer))
             }else{
-              self._wordSize = wordSizeBuffer.readUInt32BE(0)
-              return resolve(self._wordSize)
+              this._wordSize = wordSizeBuffer.readUInt32BE(0)
+              resolve(this._wordSize)
             }
           }
         })

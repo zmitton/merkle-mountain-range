@@ -12,15 +12,13 @@ const MemoryBasedDb = require('./../src/db/memoryBasedDb')
 const FileBasedDb = require('./../src/db/fileBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
 
-
-
 describe('MerkleMountinRange (MMR) instance/async functions', () => {
   let fileBasedMmr, mmr, proofMmr
   let etcLeafData = []
 
   context('#append', () => {
     it('open a file based mmr; check leaf/node lengths', async () => {
-      let fileBasedDb = new FileBasedDb('./test/fixtures/etcLeafData.mmr')
+      let fileBasedDb = FileBasedDb.open('./test/fixtures/etcLeafData.mmr')
       fileBasedMmr = new MMR(keccak256FlyHash, fileBasedDb)
       let nodeLength = await fileBasedMmr.getNodeLength()
       let leafLength = await fileBasedMmr.getLeafLength()
@@ -51,24 +49,24 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_LOOPS; i++) {
         await mmr.get(i)
       }
-      console.log("    Seconds for 1 memoryBased get ( ~1000 leaves) =       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 memoryBased get ( ~1000 leaves)       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
       
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
         await tempMmr.append(leaf, i)
       }
-      console.log("    Seconds for 1 memoryBased append (0 to 1000 leaves) = ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 memoryBased append (0 to 1000 leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         await fileBasedMmr.get(i)
       }
-      console.log("    Seconds for 1 fileBased get (tree ~1000 leaves) =     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 fileBased get (tree ~1000 leaves)     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       let leaf = await fileBasedMmr.get(0)
       let NUM_APPEND_LOOPS = 250
-      let tempFileBasedDb = new FileBasedDb('./test/fixtures/temp.mmr')
+      let tempFileBasedDb = FileBasedDb.create('./test/fixtures/temp.mmr', 64)
       let tempFileBasedMmr = new MMR(keccak256FlyHash, tempFileBasedDb)
 
       await tempFileBasedMmr.delete(0) // reset database
@@ -76,7 +74,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_APPEND_LOOPS; i++) {
         await tempFileBasedMmr.append(leaf)
       }
-      console.log("    Seconds for 1 fileBased append (tree ~1000 leaves) =  ", ((Date.now() - b) / 1000) / NUM_APPEND_LOOPS)
+      console.log("      Seconds for 1 fileBased append (tree ~1000 leaves)  ", ((Date.now() - b) / 1000) / NUM_APPEND_LOOPS)
       await tempFileBasedMmr.delete(0) // reset database
       fileSystem.unlinkSync('./test/fixtures/temp.mmr')
     })
@@ -215,15 +213,38 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
     })
   })
 
+  context('#serialize, #fromSerialized', () => {
+    it('should build and return a proof tree', async () => {
+      proofMmr = await mmr.getProof([18]) 
+      let serialied = await proofMmr.serialize()
+      let dbFromSerialized = MemoryBasedDb.fromSerialized(serialied)
+      let mmrFromSerialized = MMR.fromSerialized(proofMmr.digest, serialied)
+      // console.log("dbFromSerialized ", dbFromSerialized)
+      // console.log("mmrFromSerialized ", mmrFromSerialized)
+      // console.log("proofMmr.db", proofMmr.db)
+      assert.deepEqual(proofMmr.db, dbFromSerialized)
+      assert.deepEqual(proofMmr.db, mmrFromSerialized.db)
+
+      let dataFromGolangImplementation = `f901e722f901e3f8432cb8405b3913c31a16b669b5630be116285cc03ee8d5cdfdd6bf975092c5a25d2434c7000000000000000000000000000000000000000000000000000000100f047fc8f84322b840480ff3f8a495b764e4361a6c2e296f34e8721cf1ec54fe5c46827937353bf1180000000000000000000000000000000000000000000000000000000401ffefcdf84341b840276b0cdd50d55b2d9fb229b4a8ff08831678949cd41eadca0af142bee8f06d6c0000000000000000000000000000000000000000000000000000000812936bdcf8433cb840e6dd80f5983f930ddd64d34886ee3ca3daa3761f835c5ee72a4a35ae7b7a27d8000000000000000000000000000000000000000000000000000000203628101cf84321b840fbc5eb6b0c8a2b0be83bfde711eef57782d6c4a8949bfe51233015d2b63a77c900000000000000000000000000000000000000000000000000000008027f5fb9f84323b840ec888de9fa46cb7a47b7bd812a2f601d948d89e5317cf9f68976a0dec92b1ee20000000000000000000000000000000000000000000000000000000402802fcaf8431eb8409dd966e87aaf98d54442be98dd9b9f195e7dedf913d21c12e9df5250b005dc330000000000000000000000000000000000000000000000000000003ff2fea031`
+      let goSerialized = Buffer.from(dataFromGolangImplementation, 'hex')
+      let dbFromGo = MemoryBasedDb.fromSerialized(goSerialized)
+      // console.log("dbFromGo ", dbFromGo)
+      // console.log("proofMmr.db ", proofMmr.db)
+      assert.deepEqual(proofMmr.db, dbFromGo)
+    })
+  })
+
   context('#_getNodeValue', () => {
     it('has implied node through recursive method on sparce tree', async () => {
-
       let node45 = await proofMmr._getNodeValue(new Position(45, 3, false))
       await assert.rejects(proofMmr._getNodeValue(new Position(13, 2, true)))
-
       assert.strictEqual(node45.toString('hex'), 'c61c4b29aaec6f0a2fedafd23fb6a4559d66f46c8ff393de7ec6ebd3d8f6a6ca000000000000000000000000000000000000000000000000000000201603ff18')
     })
   })
 })
 
   // getRoot getNodeLength getLeafLength delete getProof _getNodeValue _hasNode _verifyPath _setLeafLength _hashUp
+
+
+
+

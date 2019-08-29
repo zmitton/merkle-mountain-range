@@ -72,13 +72,12 @@ Testing uses mocha. It should work to simply pull down the repo, do an `npm inst
 
 #### Changelog V0 -> V1
 
- 1 - `.mmr` file has slightly different (incompatible) format to store `wordsize` (which is no longer locked to 64 bytes)
-
- 2 - Database constructors now take an additional `wordSize` argument (default = 64 bytes)
- 3 - Support for serialized proof tree (or sparse tree)
- 4 - Refactor of `MMR` class methods into the `Position` class instead.
- 5 - New `_getLeafIndex(nodeIndex)` and `NewPosition(positionIndex)` functions
- 6 - `Digests` has been deprecated (now `_Digests`) because it doesn't belong in this repo. You should include your own hash function package. If it does not have the required function signature - i.e: `<buffer>` in `<buffer>` out, then you will have to wrap in in one that does before using it. The digest functions used in Flyclient will be available through a seperate "flyclient" npm package.
+ - `.mmr` file has slightly different (incompatible) format to store `wordsize` (which is no longer locked to 64 bytes)
+ - FileBasedDb must now be created using `.open` or `.create`. `.open` takes an additional `wordSize` argument (default = 64 bytes)
+ - Support for serialized proof tree (or sparse tree)
+ <!-- 4 - Refactor of `MMR` class methods into the `Position` class instead. -->
+ <!-- 5 - New `_getLeafIndex(nodeIndex)` and `NewPosition(positionIndex)` functions -->
+ - `Digests` has been deprecated (now `_Digests`) because it doesn't belong in this repo. You should include your own hash function package. If it does not have the required function signature - i.e: `<buffer>` in `<buffer>` out, then you will have to wrap in in one that does before using it. The digest functions used in Flyclient will be available through a seperate "flyclient" npm package.
 
 
 

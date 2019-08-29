@@ -1,4 +1,5 @@
 const { Lock }      = require('semaphore-async-await')
+const rlp           = require('rlp')
 const Position      = require('./position')
 const MemoryBasedDb = require('./db/memoryBasedDb')
 
@@ -8,6 +9,55 @@ class MMR{
     this.db  = db
     this.lock = new Lock(1)
   }
+
+  static fromSerialized(hashingFunction, serializedDb){
+    return new this(hashingFunction, MemoryBasedDb.fromSerialized(serializedDb))
+  }
+  async addSerialized(serializedDb){ //untested function
+    let newMmr = MMR.fromSerialized(serializedDb)
+    let newNodes = await newMmr.db.getNodes()
+    let indexes = Object.keys(newNodes)
+    for (var i = 0; i < indexes.length; i++) {
+      let existingValue = await this.get(indexes[i])
+      if(!!existingValue && !newNodes[indexes[i]].equals(existingValue)){
+        new Error('Node ' + indexes[i].toString + ' already exists.')
+      }
+      await this.db.set(indexes[i], newNodes[indexes[i]])
+    }
+
+    let newLeafLength = await newMmr.getLeafLength()
+    let leafLength = await this.getLeafLength()
+    if(newLeafLength >= leafLength){
+      await this._setLeafLength(newLeafLength)
+    }
+    // new plan: 
+    // extendLength(proof)
+    // make sure the new leafLength is greater than this's
+    // create a temp mem proofMmr from serializedDb
+    // then get this mmr's peaks, add them to proofs db nodes (*overwriting* any duplicates)
+    // then call a `get()` on each peak position (but this is a different get because we only have
+    // the nodeIndex (not the leaf index))
+    // if get(nodeIndex) passes verification, add all proof nodes to this mmr (but dont 
+    // overwrite). You have now verified *all* previously verified leaves are in the new one. 
+  }
+
+  async serialize(){
+    let numToBuf = (num) => {
+     let str = num.toString(16)
+     return str.length % 2 == 0 ? Buffer.from(str, 'hex') : Buffer.from('0' + str, 'hex')
+    }
+    let bufferedNodes = []
+    let nodes = await this.db.getNodes()
+    let indexes = Object.keys(nodes)
+    for (var i = 0; i < indexes.length; i++) {
+      let bufferedKey = 
+      bufferedNodes.push([numToBuf(parseInt(indexes[i])), nodes[indexes[i]]])
+    }
+    let leafLength = await this.getLeafLength()
+    return rlp.encode([leafLength, bufferedNodes])
+    // return rlp.encode([this.digest(), leafLength, bufferedNodes])
+  }
+
   async get(leafIndex){
     let leafValue
     await this.lock.acquire()
@@ -22,6 +72,28 @@ class MMR{
       this.lock.release()
     }
     return leafValue
+  }
+  async _get(nodePosition){
+    let nodeValue
+    await this.lock.acquire()
+    try{
+      let nodeLength = await this.getNodeLength()
+      let leafLength = await this.getLeafLength()
+      if(nodePosition.i >= nodeLength){ throw new Error('Node not in tree') }
+      let peakPositions = MMR.peakPositions(leafLength - 1)
+      let localPeakPosition
+      for (let i = 0; i < peakPositions.length; i++) {
+        if(peakPositions[i].i >= nodePosition.i){
+          localPeakPosition = peakPositions[i]
+          break
+        }
+      }
+      let localPeakValue = await this._getNodeValue(localPeakPosition)
+      nodeValue = await this._verifyPath(localPeakPosition, localPeakValue, nodePosition)
+    }finally{
+      this.lock.release()
+    }
+    return nodeValue
   }
   async append(value, leafIndex){
     await this.lock.acquire()
@@ -118,8 +190,8 @@ class MMR{
       throw new Error('Missing node in db')
     }
   }
-  async _verifyPath(currentPosition, currentValue, leafPosition) { // verifies as it walks
-    if (currentPosition.i == leafPosition.i) { // base case
+  async _verifyPath(currentPosition, currentValue, destinationPosition) { // verifies as it walks
+    if (currentPosition.i == destinationPosition.i) { // base case
       return currentValue
     } else {
       let leftChildPosition = MMR.leftChildPosition(currentPosition)
@@ -129,10 +201,10 @@ class MMR{
       if (!currentValue.equals(this.digest(leftValue, rightValue))) {
         throw new Error('Hash mismatch of node #' + currentPosition.i + ' and its children')
       }
-      if (leafPosition.i > currentPosition.i - 2 ** currentPosition.h - currentPosition.h + 1) { //umm yeah, check this line
-        return this._verifyPath(rightChildPosition, rightValue, leafPosition)
+      if (destinationPosition.i > currentPosition.i - 2 ** currentPosition.h - currentPosition.h + 1) { //umm yeah, check this line
+        return this._verifyPath(rightChildPosition, rightValue, destinationPosition)
       } else {
-        return this._verifyPath(leftChildPosition, leftValue, leafPosition)
+        return this._verifyPath(leftChildPosition, leftValue, destinationPosition)
       }
     }
   }
