@@ -82,7 +82,7 @@ Testing uses mocha. It should work to simply pull down the repo, do an `npm inst
 
 ### Merkle Proofs & Serialization Format
 
-The merkle Proof data is essentially the same data of a regular MMR (leafLength and nodes) except with only _some_ of the nodes (rather than of all of them). For the data might look like this:
+The merkle Proof data is essentially the same data of a regular MMR (leafLength and nodes) except with only _some_ of the nodes (rather than of all of them). For example the data might look like this:
 
 ```
 leafLength: 34
