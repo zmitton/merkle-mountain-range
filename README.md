@@ -1,36 +1,31 @@
 # <img src="img/logo.png" alt="alt text" width="100" height="whatever"> Merkle Mountain Range
 
-A type of merkle tree that can be visualized as many (perfect) merkle trees which are then combined into 1, by creating a single root from all of their peaks. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it. When appending leaves, nodes are not updated, only appended. This makes for a minimal amount of total hash computations (~2n), while having the useful property that a _merkle inclusion proof_ of a leaf at any time, contains a superset of its _merkle inclusion proof_ at any previous time.
+A type of merkle tree that can be visualized as many (perfect) merkle trees which are then combined into 1, by creating a single root from all of their peaks. The rules for making the tree(s) however are rigidly deterministic such that the entire structure depends only on the number of items put into it. When appending leaves, nodes are not updated, only appended. This makes for a minimal amount of total hash computations (~2n), while maintaining the property that no nodes are updated when appending new leaves (nodes are merely added). Because of this, the _merkle inclusion proofs_ are _also_ only appended to meaning that later proofs are sufficient (supersets of) earlier proofs.
 
 A Golang version of this can be found [here](https://github.com/zmitton/go-merklemountainrange).
 
-These unique properties make it optimal for proving the ordering of a linked hashlist (read blockchain) as described in [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA).
-
-
-![alt text](img/mmr.jpg "Logo Title Text 1")
+These unique properties make it optimal for proving the work of an entire PoW blockchain. A protocol that does this is [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA).
 
 
 ## Resources 
 
-MMR data structure (first described by Peter Todd)
+MMR data structure as described by Peter Todd:
+([Reyzin and Yakoubov](https://eprint.iacr.org/2015/718.pdf) may have proposed at a similar data structure in 2015)
  
  - [Basics](https://github.com/opentimestamps/opentimestamps-server/blob/master/doc/merkle-mountain-range.md)
  - [Detailed properties and python code](https://github.com/proofchains/python-proofmarshal/blob/master/proofmarshal/mmr.py)
  - [implimentation / feture recomendations](https://github.com/mimblewimble/grin/blob/master/doc/mmr.md)
  - [an early proposed application](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2016-May/012715.html)
 
-
-I have improved the structure slightly from the above references (by simplifying it). The difference is in the "bagging the peaks" process (used to calculate the merkle-root). Todd's process takes the peaks and creates another merkle tree from them in order to attain a single root. My process is to simply digest the peaks as a concatenated array to attain a single root.
+I have improved the structure slightly from the above references (by simplifying it). The difference is in the "bagging the peaks" process (used to calculate the merkle-root). Todd's process takes the peaks and creates another merkle tree from them in order to attain a single root. My process is to simply digest the peaks as a single concatenated array to attain a single root.
 
 Why?
 
 1. Using Todd's process it was ([by his own admission](https://github.com/proofchains/python-proofmarshal/blob/master/proofmarshal/mmr.py#L139)) very difficult to logically determine leaf position from an inclusion proof.
 
-2. The most elegant way of dealing with merkle-proofs is to basically think of them as a sparse tree in which only _some_ of its nodes are present, and where a proof can be considered invalid iff, while traversing said tree, an undefined node is touched, or a node exists who's children do not hash to itself (more on this below). The _second tree structure_ made from the peaks would not have the same property of being _append only_ and therefore, would not contain nodes that can be referenced by a perminent _node index_ from the array. This means shared proofs would have to be less effiecient or more complex in some way.
+2. The `getRoot` method concatenates the peaks and hashes them on the fly (the root is never persisted). This process is very cheap because there are only ~log(n)/2 peaks.
 
-3. The method of instead concatenating the peaks and hashing them is reasonable because the number of peaks is already ~log(n)/2 and therefore does not present a scaling issue. We _can_ do it this way, and it will work just fine :)
 
-It is possible that some proofs would be very slightly smaller using the other method. For Fly Client and I suspect most applications, the opposite is true.
 
 ## Use
 
@@ -82,33 +77,52 @@ Testing uses mocha. It should work to simply pull down the repo, do an `npm inst
 
 ### Merkle Proofs & Serialization Format
 
-The merkle Proof data is essentially the same data of a regular MMR (leafLength and nodes) except with only _some_ of the nodes (rather than of all of them). For example the data might look like this:
+
+The most elegant way of dealing with merkle-proofs is to basically think of them as a sparse tree in which only _some_ of its nodes are present. As long as while performing a `get` the software walks from peak to leaf checking each hash properly matches its children along the way, this proves inclusion before returning the leaf. If any node required in this path traversal is not present, the sparse tree is _insufficient_ to prove this particular leaf (software currently throws Missing node error); If any hash does not match its parents, the proof is _fraudulent_ (throws Hash mismatch error).
+
+
+The merkle Proof data is essentially the same data of a regular MMR (leafLength and nodes) except with only _some_ of the nodes (rather than of all of them). For example the data of a sprase mmr might look like this:
 
 ```
 leafLength: 34
 nodes:
   { 
-    30 : 0x1234567890,
-    32 : 0x1234123434,
-    33 : 0x2143658709
+    30 : <12 34 56 78 90>,
+    32 : <12 34 12 34 34>,
+    33 : <21 43 65 87 09>
   }
 ```
+(whereas a similar _full_ mmr of length 34 would contain all the nodes from 0-33)
 
-To Serialize this data we first arrange it into very specifically arranged arrays of byte arrays for RLP encoding. On the other end, the software knows that the first item is leafLength and the second item is an array of nodes, and that each node is of length 2 (to represent the node key pairs):
+To serialize this data for remote transmission  we first arrange it into very specifically arranged arrays (of byte arrays) for RLP encoding. On the other end, the software knows that the zeroith item is leafLength and the first item is an array of nodes (in which each node is of length 2 to represent the node key pairs):
 
 ```
 [
-  <Buffer 22>,
-  [ <Buffer 1e>, <Buffer 12 34 56 78 90> ],
-  [ <Buffer 20>, <Buffer 12 34 12 34 34> ],
-  [ <Buffer 21>, <Buffer 21 43 65 87 09> ]
+  <22>,
+  [ <1e>, <12 34 56 78 90> ],
+  [ <20>, <12 34 12 34 34> ],
+  [ <21>, <21 43 65 87 09> ]
 ]
 ```
 
-Finally we can RLP-encode the data:
+Finally we can `rlp.encode()` this data:
 
 ```
-<Buffer d9 22 c7 1e 85 12 34 56 78 90 c7 20 85 12 34 12 34 34 c7 21 85 21 43 65 87 09>
+<d9 22 c7 1e 85 12 34 56 78 90 c7 20 85 12 34 12 34 34 c7 21 85 21 43 65 87 09>
 
 ```
+`rlp.decode()` gets you exactly back to the above arrays, and the software can reinterpret the items as described above to rebuild the sparse tree. Note that these serialized bytes can be passed from Golang package to JS package and vise-versa!
+
+
+#### NOTES (mostly to self):
+
+there probably should be a whole framework for requesting more nodes (to complete insufficient proofs). A few ideas on this.
+
+ - somehow the verifier must get the `diff`of node positions that is has, vs ones that it needs.
+ - it would be maximally flexible to be able to request individual nodes - so we need a `getNodes(nodeIndexes)` method that the prover can use to return them.
+ - however it would often be more concise to request particular leafIndexes and the prover would calculate which nodes to return to satisfy that. Of course this would likely return some nodes the verifier already has (like always the peaks).
+ - It would be useful for these requests to include the `leafLength` AND the `root` which would LOCK the prover to an EXACT response any variation from which would be known to be fraudulent (without this, the prover could return nodes from some different tree that it genuinely thinks you are talking about (for instance a different micro-fork/re-org in our blockchain context)).
+
+<!-- Asking myslef
+ - how would the remote abstraction (of haivng a prover) be best designed? Would it be another layer on the database where it knows to remotely request/receive the extra nodes when it doesn't have them, and it saves them in the memory-db layer after it gets them? -->
 
