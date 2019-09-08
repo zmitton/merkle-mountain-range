@@ -6,6 +6,7 @@ A Golang version of this can be found [here](https://github.com/zmitton/go-merkl
 
 These unique properties make it optimal for proving the work of an entire PoW blockchain. A protocol that does this is [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA).
 
+![alt text](img/mmr.png "MMR graphical representation")
 
 ## Resources 
 
