@@ -13,33 +13,33 @@ class MMR{
   static fromSerialized(hashingFunction, serializedDb){
     return new this(hashingFunction, MemoryBasedDb.fromSerialized(serializedDb))
   }
-  async addSerialized(serializedDb){ //untested function
-    let newMmr = MMR.fromSerialized(serializedDb)
-    let newNodes = await newMmr.db.getNodes()
-    let indexes = Object.keys(newNodes)
-    for (var i = 0; i < indexes.length; i++) {
-      let existingValue = await this.get(indexes[i])
-      if(!!existingValue && !newNodes[indexes[i]].equals(existingValue)){
-        new Error('Node ' + indexes[i].toString + ' already exists.')
-      }
-      await this.db.set(indexes[i], newNodes[indexes[i]])
-    }
+  // async addSerialized(serializedDb){ //untested function
+  //   let newMmr = MMR.fromSerialized(serializedDb)
+  //   let newNodes = await newMmr.db.getNodes()
+  //   let indexes = Object.keys(newNodes)
+  //   for (var i = 0; i < indexes.length; i++) {
+  //     let existingValue = await this.get(indexes[i])
+  //     if(!!existingValue && !newNodes[indexes[i]].equals(existingValue)){
+  //       new Error('Node ' + indexes[i].toString + ' already exists.')
+  //     }
+  //     await this.db.set(indexes[i], newNodes[indexes[i]])
+  //   }
 
-    let newLeafLength = await newMmr.getLeafLength()
-    let leafLength = await this.getLeafLength()
-    if(newLeafLength >= leafLength){
-      await this._setLeafLength(newLeafLength)
-    }
-    // new plan: 
-    // extendLength(proof)
-    // make sure the new leafLength is greater than this's
-    // create a temp mem proofMmr from serializedDb
-    // then get this mmr's peaks, add them to proofs db nodes (*overwriting* any duplicates)
-    // then call a `get()` on each peak position (but this is a different get because we only have
-    // the nodeIndex (not the leaf index))
-    // if get(nodeIndex) passes verification, add all proof nodes to this mmr (but dont 
-    // overwrite). You have now verified *all* previously verified leaves are in the new one. 
-  }
+  //   let newLeafLength = await newMmr.getLeafLength()
+  //   let leafLength = await this.getLeafLength()
+  //   if(newLeafLength >= leafLength){
+  //     await this._setLeafLength(newLeafLength)
+  //   }
+  //   // new plan: 
+  //   // extendLength(proof)
+  //   // make sure the new leafLength is greater than this's
+  //   // create a temp mem proofMmr from serializedDb
+  //   // then get this mmr's peaks, add them to proofs db nodes (*overwriting* any duplicates)
+  //   // then call a `get()` on each peak position (but this is a different get because we only have
+  //   // the nodeIndex (not the leaf index))
+  //   // if get(nodeIndex) passes verification, add all proof nodes to this mmr (but dont 
+  //   // overwrite). You have now verified *all* previously verified leaves are in the new one. 
+  // }
 
   async serialize(){
     let numToBuf = (num) => {

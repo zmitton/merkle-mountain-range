@@ -125,5 +125,66 @@ there probably should be a whole framework for requesting more nodes (to complet
  - It would be useful for these requests to include the `leafLength` AND the `root` which would LOCK the prover to an EXACT response any variation from which would be known to be fraudulent (without this, the prover could return nodes from some different tree that it genuinely thinks you are talking about (for instance a different micro-fork/re-org in our blockchain context)).
 
 <!-- Asking myslef
- - how would the remote abstraction (of haivng a prover) be best designed? Would it be another layer on the database where it knows to remotely request/receive the extra nodes when it doesn't have them, and it saves them in the memory-db layer after it gets them? -->
+ - how would the remote abstraction (of haivng a prover) be best designed? Would it be another layer on the database where it knows to remotely request/receive the extra nodes when it doesn't have them, and it saves them in the memory-db layer after it gets them? 
+
+
+The problem Im having: ()
+
+
+Maybe I should separate the MMRs (or databases) into types (3?... 4?). 
+
+but there are others funcs only the proof type trees can do.
+
+ - fullDb
+ - sparseDb
+ - peaksDb
+ - rootDb
+
+From the top going down, each would inherit from the lower one (and theirfore be a fully compatible superset of it). So, i.e. a `fullDB` is also a `sparseDb` and a `peaksDb` and a `rootDb`
+
+There is already a problem with this, the old problem that the fileBasedDb (which should be a fullDb) can not easily perform `sparseDb` operations... Since sparseDbs can add leaves at any index, while fileBaedDb needs there to be (at the very least) A bunch of extra byte-padding in its place. Maybe this is solvable because the fileDb, can just throw an error when you try to add - say leaf #594875289 when it only currently contains up to leaf #1000. from the mmr standpoint is can do the operation, but the db should throw the error because it would violate the fullness property anyway. By that I mean that even if it were to do the op, it would no longer be a fullDb afterword. This isnt really true for the other relationships, is it?
+
+
+here is the API:
+
+new(hashingFunction, db = new MemoryBasedDb())
+open(hashingFunction, db = new MemoryBasedDb())
+
+newFromSerialized(hashingFunction, serializedDb)
+
+serialize() all (doesnt do much for some of them) why do we need this even tho?
+get(leafIndex, proof) all (does a verified get (so its useful for all of them)) //needs to take optional proof
+append(value, proof) all (easy: return set(value, this.leafLength, proof)) //
+getRoot(leafIndex) all but it relies on existing data in the rootOnly db. how to do this (other than caching)
+getLeafLength() all
+getNodeLength() all
+
+set(value, leafIndex, proof) sparse only (others can only do last element) (existing js func should be 'set'). wait actually, you can probably set as long as you give a proof of the element that is being reset. Make sure that the implementation for 'set' is properly hashing up any right-siblings (if they exist (which they will only if this is a true set (rather than an append))). I don't think its properly doing this right now. Once this is fix, the function should work on ALL MMR types.
+
+delete(leafIndex) // replace with setLeafLength(leafLength, proof). yes this would work (send proof of last elem at specified length) OK: now this function can do a totally different thing (unless its 'full'), that is it can set the length LONGER than the current length. This is an 'unsafe' function though, as there is no way to prove it (without all the new leaves which could have already been achieved through multiple appends). So this would be a feature to add unproven things... much like initiating a partial tree from a serialized subset of nodes. These are sortof a category of there own. Like an unsafe or unproven type of function. So i think that should be only the private version maybe. ok that works
+
+
+
+getProof(leafIndexes, referenceTreeLength) yeah doesnt really make sense for anything except fullDb (and sparse can work sometimes but I'm not sure the use case)
+
+
+_get(nodePosition) all (works fine but is unverified)
+_getNodeValue(position) all (the recursion uses extra gas though for the peaksOnly and rootOnly versions) 
+_verifyPath(currentPosition, currentValue, destinationPosition) all (but needs a good way to do it with supplied proofs)
+_setLeafLength(leafLength) it should like throw an error with the fileBasedDb (because it will basically corrupt it). The levelDb based DB would actually work fine, but afterwords, it would no longer be a fullDb, it would be sparse only. So it might be worth explicitly saying so or something. Actually the best thing to do is to have the fileBaed throw an error. We do not really need a distinction between all the bellow version. They can exist under the hood, but all the same functions seem to fly for all of them (except the fileBasedDb which has been the issue from the start. It might be worth deprecating in favor of levelDb based version. Its sad to see it go though (considering its at least twice the storage efficiency). wait a minute. it does know its own leafLength so it can throw the error if you try this in the wrong context.
+_hashUp(positionPairs) all (does need a layering solution for when proof db is given)
+
+
+bottom line is that we probably don't need the hierarchy of these 4 types. We should just program such that they all work no matter the situation. The main plan should be to adopt a system of layering databases, so that they can be used in the regular way when suppling a proof (and other contexts). A change to the getNodeValue function could take care of this I guess if I pass it a temp db or something. Or should it be a tempMmr? the only diff is having a digest I guess which would always be the same, so temp db should be enough. either the getNodeValue function takes this extra db as an argument, or we stick a tempdb prop on the mmr instance and then delete it afterwords. Some of the functions would like to see all the nodes from the tempDb later added to the mmr (after the proof turns out to be valid). do we just _zip them on afterwords? seems fine I guess. as long as there is no reason to need layering more than 2 Dbs at a time... a recursive method would be possible otherwise (but we would still need the zip step (rather than keeping the layered dbs in place) otherwise it would degenerate the lookup process (arbitrary length db nestings))
+
+
+The problem with a rootOnly db is that the root we now need to make a cached root that resets in many of the functions - set(), append(), _setLeafLength(), maybe hashUp(), others? Is there anotehr way to do this? maybe using mixins instead of inheritance? A lot of this seems like overkill. maybe these db distinctions are better as mmr distinctions... then i can give them a 'type', or even make another layer that inherits from baseMmr which overwrites the getRoot() function. 
+
+After some implementation and practice, Ive realized that although the above functions apply to _all_ the mmr types, that only means that they make sense to have for that type, NOT that they can/should be implimented the same. I found out, that behavior differs greatly between the types, so 1 - its a matter relevent to the mmr NOT the db (db shouldnt know/care about mmr behavior), but also to do this, instead of having types with lots of conditionals, it seems that it will make more sense to go the inheritance route. i.e. each type is its own class inheriting from BaseMmr and overwriting many of its functions. The API can be identical which is nice.
+
+
+
+-->
+
+
 
