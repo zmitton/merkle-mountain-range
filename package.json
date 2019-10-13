@@ -4,7 +4,7 @@
   "description": "Merkle tree optimized for lists of sequentially appended data and its proofs",
   "main": "index.js",
   "scripts": {
-    "test": "npx mocha --timeout 5000"
+    "test": "npx mocha --timeout 50000"
   },
   "repository": {
     "type": "git",
