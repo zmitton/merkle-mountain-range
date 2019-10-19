@@ -76,8 +76,20 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       }
       console.log("      Seconds for 1 fileBased append (tree ~1000 leaves)  ", ((Date.now() - b) / 1000) / NUM_APPEND_LOOPS)
       await tempFileBasedMmr.delete(0) // reset database
-      fileSystem.unlinkSync('./test/fixtures/temp.mmr')
+      // fileSystem.unlinkSync('./test/fixtures/temp.mmr')
     })
+  })
+
+  after(function(done){
+    if (fileSystem.existsSync('./test/fixtures/temp.mmr')) {
+      //file exists
+      fileSystem.unlinkSync('./test/fixtures/temp.mmr', function(error) {
+        if (error) {
+          throw error;
+        }
+      })
+    }    
+    done()
   })
 
   context('#get', () => {
