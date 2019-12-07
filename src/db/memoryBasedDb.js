@@ -38,7 +38,7 @@ class MemoryBasedDb {
   async get(index){
     return this.nodes[index]
   }
-  async set(index, value){
+  async set(value, index){
     this.nodes[index] = value
   }
   async getLeafLength(){

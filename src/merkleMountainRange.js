@@ -22,7 +22,7 @@ class MMR{
   //     if(!!existingValue && !newNodes[indexes[i]].equals(existingValue)){
   //       new Error('Node ' + indexes[i].toString + ' already exists.')
   //     }
-  //     await this.db.set(indexes[i], newNodes[indexes[i]])
+  //     await this.db.set(newNodes[indexes[i]], indexes[i])
   //   }
 
   //   let newLeafLength = await newMmr.getLeafLength()
@@ -102,7 +102,7 @@ class MMR{
       if(leafIndex == undefined || leafIndex == leafLength){
         let nodePosition = MMR.getNodePosition(leafLength)
         let mountainPositions = MMR.mountainPositions(MMR.localPeakPosition(leafLength, leafLength), nodePosition.i)
-        await this.db.set(nodePosition.i, value)
+        await this.db.set(value, nodePosition.i)
         await this._hashUp(mountainPositions)
         await this._setLeafLength(leafLength + 1)
       } else{
@@ -217,7 +217,7 @@ class MMR{
       let leftValue = await this._getNodeValue(positionPairs[i][0])
       let rightValue = await this._getNodeValue(positionPairs[i][1])
       let writeIndex = MMR.parentIndex(positionPairs[i][0])
-      await this.db.set(writeIndex, this.digest(leftValue, rightValue))
+      await this.db.set(this.digest(leftValue, rightValue), writeIndex)
     }
   }
 

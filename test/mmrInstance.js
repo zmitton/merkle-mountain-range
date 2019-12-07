@@ -10,15 +10,17 @@ const MMR = require('./../src/merkleMountainRange')
 const Position = require('./../src/position')
 const MemoryBasedDb = require('./../src/db/memoryBasedDb')
 const FileBasedDb = require('./../src/db/fileBasedDb')
+const LevelDbBasedDb = require('./../src/db/levelDbBasedDb')
 const { keccak256FlyHash }   = require('../src/digests')
 
 describe('MerkleMountinRange (MMR) instance/async functions', () => {
-  let fileBasedMmr, mmr, proofMmr
+  let fileBasedMmr, levelDbBasedMmr, mmr, proofMmr
+  let levelDbBasedDb
   let etcLeafData = []
 
   context('#append', () => {
     it('open a file based mmr; check leaf/node lengths', async () => {
-      let fileBasedDb = FileBasedDb.open('./test/fixtures/etcLeafData.mmr')
+      let fileBasedDb = FileBasedDb.open('./test/fixtures/etcLeafDataFile.mmr')
       fileBasedMmr = new MMR(keccak256FlyHash, fileBasedDb)
       let nodeLength = await fileBasedMmr.getNodeLength()
       let leafLength = await fileBasedMmr.getLeafLength()
@@ -39,11 +41,13 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       assert.strictEqual(leafLength, 1000)
       assert.strictEqual(nodeLength, 1994) // observation only
     })
+  })
 
+  context('BENCHMARKS', () => {
     it('performance/timing', async () => {
       let tempMmr = new MMR(keccak256FlyHash)
       let b
-      let NUM_LOOPS = 500
+      let NUM_LOOPS = 250
 
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
@@ -65,31 +69,60 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       console.log("      Seconds for 1 fileBased get (tree ~1000 leaves)     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       let leaf = await fileBasedMmr.get(0)
-      let NUM_APPEND_LOOPS = 250
-      let tempFileBasedDb = FileBasedDb.create('./test/fixtures/temp.mmr', 64)
+      let tempFileBasedDb = FileBasedDb.create('./test/temp.mmr', 64)
       let tempFileBasedMmr = new MMR(keccak256FlyHash, tempFileBasedDb)
 
       await tempFileBasedMmr.delete(0) // reset database
       b = Date.now()
-      for (var i = 0; i < NUM_APPEND_LOOPS; i++) {
+      for (var i = 0; i < NUM_LOOPS; i++) {
         await tempFileBasedMmr.append(leaf)
       }
-      console.log("      Seconds for 1 fileBased append (tree ~1000 leaves)  ", ((Date.now() - b) / 1000) / NUM_APPEND_LOOPS)
-      await tempFileBasedMmr.delete(0) // reset database
-      // fileSystem.unlinkSync('./test/fixtures/temp.mmr')
+      console.log("      Seconds for 1 fileBased append (tree ~1000 leaves)  ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+
+      levelDbBasedDb = await LevelDbBasedDb.openOrCreate('./test/etcLeafDataLevelDb', Buffer.from('c12f','hex'))
+      levelDbBasedMmr = new MMR(keccak256FlyHash, levelDbBasedDb)
+
+      assert.equal(await levelDbBasedDb.getLeafLength(), 0)
+      // await levelDbBasedMmr.delete(0) // reset database
+      b = Date.now()
+      for (var i = 0; i < NUM_LOOPS; i++) {
+        await levelDbBasedMmr.append(etcLeafData[i])
+      }
+      console.log("      Seconds for 1 levelDbBased append (tree ~1000 leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+
+      b = Date.now()
+      for (var i = 0; i < NUM_LOOPS; i++) {
+        await levelDbBasedMmr.get(i)
+      }
+      console.log("      Seconds for 1 levelDbBased get (tree ~1000 leaves)    ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      assert.equal(await levelDbBasedDb.getLeafLength(), 250)
+      assert.strictEqual( etcLeafData[0].equals(await levelDbBasedMmr.get(0)), true)
+      assert.strictEqual( etcLeafData[1].equals(await levelDbBasedMmr.get(1)), true)
+      assert.strictEqual( etcLeafData[3].equals(await levelDbBasedMmr.get(3)), true)
+      assert.strictEqual( etcLeafData[8].equals(await levelDbBasedMmr.get(8)), true)
+      assert.strictEqual( etcLeafData[10].equals(await levelDbBasedMmr.get(10)), true)
+      assert.strictEqual( etcLeafData[45].equals(await levelDbBasedMmr.get(45)), true)
+
     })
   })
 
   after(function(done){
-    if (fileSystem.existsSync('./test/fixtures/temp.mmr')) {
-      //file exists
-      fileSystem.unlinkSync('./test/fixtures/temp.mmr', function(error) {
-        if (error) {
-          throw error;
+    if (fileSystem.existsSync('./test/temp.mmr')) {
+      let error = fileSystem.unlinkSync('./test/temp.mmr')
+      if(error){
+        throw error
+      }
+    }
+    if (fileSystem.existsSync('./test/etcLeafDataLevelDb')) {
+      levelDbBasedDb.levelDb.clear(function(e){
+        if(e){
+          throw e
         }
+        done()
       })
-    }    
-    done()
+    }else{
+      done()
+    }
   })
 
   context('#get', () => {

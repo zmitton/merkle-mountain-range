@@ -7,12 +7,12 @@ class FileBasedDB {
     throw new Error('Please use the static `create` and `open` methods to construct a FileBasedDB')
   }
   static create(filePath, wordSize = 64){// throws if file already exists
-    return this._openOrCreate(filePath, 'ax+', wordSize)
+    return this.openOrCreate(filePath, 'ax+', wordSize)
   }
   static open(filePath){// throws if file does not exist
-    return this._openOrCreate(filePath, 'r+')
+    return this.openOrCreate(filePath, 'r+')
   }
-  static _openOrCreate(filePath, fileSystemFlags, wordSize){
+  static openOrCreate(filePath, fileSystemFlags, wordSize){
     let db = Object.create(this.prototype)
     db.filePath = filePath
     db.fd = fileSystem.openSync(filePath, fileSystemFlags)
@@ -41,7 +41,7 @@ class FileBasedDB {
       })
     })
   }
-  async set(index, value){
+  async set(value, index){
     let wordSize = await this._getWordSize()
     if(value == undefined || Buffer.alloc(wordSize).equals(value)){
       throw new Error('Can not set nodeValue as an empty buffer')
