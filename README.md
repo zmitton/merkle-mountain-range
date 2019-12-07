@@ -54,6 +54,10 @@ With 1000 64-byte leaves (2015 macbookpro)
    - Time per `append()` =  0.000301s
    - Time per `get()` =  0.000719s
    - Time per `mmr._getNodeValue(MMR.getNodePosition(leafIndex))` about 0.00004
+ - LevelDbBasedDb
+   - Time per `append()` =  0.000384s
+   - Time per `get()` =  0.000832s
+
 
 The cost of `mmr.get(leafIndex)` can be reduced by instead using `mmr._getNodeValue(MMR.getNodePosition(leafIndex))`. Because `get()` verifies as it traverses down the tree. Makes it easy to not mess up verification. You can technically get a leaf much faster with a single read (that does not verify) by calculating the position and reading it directly (O(1) instead of O(logn)).
 
@@ -75,6 +79,7 @@ Testing uses mocha. It should work to simply pull down the repo, do an `npm inst
  <!-- 5 - New `_getLeafIndex(nodeIndex)` and `NewPosition(positionIndex)` functions -->
  - `Digests` has been deprecated (now `_Digests`) because it doesn't belong in this repo. You should include your own hash function package. If it does not have the required function signature - i.e: `<buffer>` in `<buffer>` out, then you will have to wrap in in one that does before using it. The digest functions used in Flyclient will be available through a seperate "flyclient" npm package.
 
+ - Added support for LevelDb based databases with optional "key prefix" for data name spacing
 
 ### Merkle Proofs & Serialization Format
 

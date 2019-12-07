@@ -53,20 +53,20 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_LOOPS; i++) {
         await mmr.get(i)
       }
-      console.log("      Seconds for 1 memoryBased get ( ~1000 leaves)       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 memoryBased get ( ~250  leaves)       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
       
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
         await tempMmr.append(leaf, i)
       }
-      console.log("      Seconds for 1 memoryBased append (0 to 1000 leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 memoryBased append (0 to 250  leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         await fileBasedMmr.get(i)
       }
-      console.log("      Seconds for 1 fileBased get (tree ~1000 leaves)     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 fileBased get (tree ~250  leaves)     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       let leaf = await fileBasedMmr.get(0)
       let tempFileBasedDb = FileBasedDb.create('./test/temp.mmr', 64)
@@ -77,7 +77,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_LOOPS; i++) {
         await tempFileBasedMmr.append(leaf)
       }
-      console.log("      Seconds for 1 fileBased append (tree ~1000 leaves)  ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 fileBased append (tree ~250  leaves)  ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       levelDbBasedDb = await LevelDbBasedDb.openOrCreate('./test/etcLeafDataLevelDb', Buffer.from('c12f','hex'))
       levelDbBasedMmr = new MMR(keccak256FlyHash, levelDbBasedDb)
@@ -88,13 +88,13 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_LOOPS; i++) {
         await levelDbBasedMmr.append(etcLeafData[i])
       }
-      console.log("      Seconds for 1 levelDbBased append (tree ~1000 leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 levelDbBased append (tree ~250 leaves)", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         await levelDbBasedMmr.get(i)
       }
-      console.log("      Seconds for 1 levelDbBased get (tree ~1000 leaves)    ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 levelDbBased get (tree ~250 leaves)   ", ((Date.now() - b) / 1000) / NUM_LOOPS)
       assert.equal(await levelDbBasedDb.getLeafLength(), 250)
       assert.strictEqual( etcLeafData[0].equals(await levelDbBasedMmr.get(0)), true)
       assert.strictEqual( etcLeafData[1].equals(await levelDbBasedMmr.get(1)), true)
@@ -145,7 +145,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
         assert.strictEqual(etcLeafData[i].equals(leaf), true)
         assert.strictEqual(leaf, etcLeafData[i])
       }
-      // console.log("    Time for 1 fileBased get and then 1 memoryBased append (1000 leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
+      // console.log("    Time for 1 fileBased get and then 1 memoryBased append (250  leaves) = ", ((Date.now() - b) / 1000) / etcLeafData.length)
     })
   })
 
