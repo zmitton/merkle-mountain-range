@@ -20,8 +20,7 @@ class LevelDbBasedDb{
     db.levelDb = await Level(filePath, options)
     db.keyPrefix = keyPrefix || Buffer.alloc(0)
 
-    let dbExists = await db.dbExists()
-    if(!dbExists){
+    if(!(await db._dbExists())){
       await db.setLeafLength(0)
     }
     return db
@@ -58,7 +57,7 @@ class LevelDbBasedDb{
     lengthBuffer.writeUInt32BE(leafLength, 0)
     return this.levelDb.put(key, lengthBuffer)
   }
-  async dbExists(){
+  async _dbExists(){
     return !!(await this.getLeafLength())
   }
 }
