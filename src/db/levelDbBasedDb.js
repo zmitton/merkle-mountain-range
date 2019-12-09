@@ -18,7 +18,8 @@ class LevelDbBasedDb{
     options.keyEncoding = 'binary'
     options.valueEncoding = 'binary'
     db.levelDb = await Level(filePath, options)
-    db.keyPrefix = keyPrefix || Buffer.alloc(0)
+    // adding 4 bytes here as hack to support 8 byte indexes (instead of 4)
+    db.keyPrefix = Buffer.concat([Buffer.alloc(4), keyPrefix || Buffer.alloc(0)])
 
     if(!(await db._dbExists())){
       await db.setLeafLength(0)
