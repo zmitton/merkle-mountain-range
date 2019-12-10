@@ -33,7 +33,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
 
       for (var i = 0; i < 1000; i++) {
         let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
-        etcLeafData.push(leaf) // for testing against later
+        etcLeafData.push(leaf) // for easy testing against later
         await mmr.append(leaf, i)
       }
       let nodeLength = await fileBasedMmr.getNodeLength()
@@ -53,12 +53,11 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       for (var i = 0; i < NUM_LOOPS; i++) {
         await mmr.get(i)
       }
-      console.log("      Seconds for 1 memoryBased get ( ~250  leaves)       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
+      console.log("      Seconds for 1 memoryBased get ( ~1000 leaves)       ", ((Date.now() - b) / 1000) / NUM_LOOPS)
       
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
-        let leaf = await fileBasedMmr.db.get(MMR.getNodePosition(i).i)
-        await tempMmr.append(leaf, i)
+        await tempMmr.append(etcLeafData[i], i)
       }
       console.log("      Seconds for 1 memoryBased append (0 to 250  leaves) ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
@@ -68,14 +67,13 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       }
       console.log("      Seconds for 1 fileBased get (tree ~250  leaves)     ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
-      let leaf = await fileBasedMmr.get(0)
       let tempFileBasedDb = FileBasedDb.create('./test/temp.mmr', 64)
       let tempFileBasedMmr = new MMR(keccak256FlyHash, tempFileBasedDb)
 
       await tempFileBasedMmr.delete(0) // reset database
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
-        await tempFileBasedMmr.append(leaf)
+        await tempFileBasedMmr.append(etcLeafData[i])
       }
       console.log("      Seconds for 1 fileBased append (tree ~250  leaves)  ", ((Date.now() - b) / 1000) / NUM_LOOPS)
 
@@ -83,7 +81,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       levelDbBasedMmr = new MMR(keccak256FlyHash, levelDbBasedDb)
 
       assert.equal(await levelDbBasedDb.getLeafLength(), 0)
-      // await levelDbBasedMmr.delete(0) // reset database
+
       b = Date.now()
       for (var i = 0; i < NUM_LOOPS; i++) {
         await levelDbBasedMmr.append(etcLeafData[i])
@@ -95,7 +93,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
         await levelDbBasedMmr.get(i)
       }
       console.log("      Seconds for 1 levelDbBased get (tree ~250 leaves)   ", ((Date.now() - b) / 1000) / NUM_LOOPS)
-      assert.equal(await levelDbBasedDb.getLeafLength(), 250)
+      assert.equal(await levelDbBasedDb.getLeafLength(), NUM_LOOPS)
       assert.strictEqual( etcLeafData[0].equals(await levelDbBasedMmr.get(0)), true)
       assert.strictEqual( etcLeafData[1].equals(await levelDbBasedMmr.get(1)), true)
       assert.strictEqual( etcLeafData[3].equals(await levelDbBasedMmr.get(3)), true)
@@ -103,6 +101,11 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       assert.strictEqual( etcLeafData[10].equals(await levelDbBasedMmr.get(10)), true)
       assert.strictEqual( etcLeafData[45].equals(await levelDbBasedMmr.get(45)), true)
 
+      // swapping the db should not affect any nodes or roots
+      assert.equal((await mmr.getRoot(249)).toString('hex'),(await tempMmr.getRoot(249)).toString('hex'))
+      assert.equal((await mmr.getRoot(249)).toString('hex'),(await fileBasedMmr.getRoot(249)).toString('hex'))
+      assert.equal((await mmr.getRoot(249)).toString('hex'),(await tempFileBasedMmr.getRoot(249)).toString('hex'))
+      assert.equal((await mmr.getRoot(249)).toString('hex'),(await levelDbBasedMmr.getRoot(249)).toString('hex'))
     })
   })
 
@@ -167,6 +170,7 @@ describe('MerkleMountinRange (MMR) instance/async functions', () => {
       // difficulty at block 999 is 21991996248790 -> 0x1400691fd2d6
       let expectedFinalRootValue = '1d6e5c69d70d3ac8847ccf63f61303f607382bd988d0d8b559ce53e3305e7b6700000000000000000000000000000000000000000000000000001400691fd2d6'
       let computedFinalRoot = await mmr.getRoot()
+      console.log((await levelDbBasedMmr.getRoot()).toString('hex'))
       let computed999thRoot = await mmr.getRoot(999)
       assert.strictEqual(computedFinalRoot.toString('hex'), expectedFinalRootValue)
       assert.strictEqual(computed999thRoot.toString('hex'), expectedFinalRootValue)
