@@ -4,7 +4,7 @@ A type of merkle tree that can be visualized as many (perfect) merkle trees whic
 
 A Golang version of this can be found [here](https://github.com/zmitton/go-merklemountainrange).
 
-These unique properties make it optimal for proving the work of an entire PoW blockchain. A protocol that does this is [FlyClient](https://www.youtube.com/watch?v=BPNs9EVxWrA).
+These unique properties make it optimal for proving the work of an entire PoW blockchain. A protocol that does this is [FlyClient](https://youtu.be/BPNs9EVxWrA?t=8386).
 
 ![alt text](img/mmr.png "MMR graphical representation")
 
